@@ -11,10 +11,13 @@ dotenv.config();
 const port = process.env.PORT || 5000;
 const app = express();
 
-// Startup validation
+// Startup validation with helpful guidance
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  console.error('CRITICAL: JWT_SECRET is not configured or is too short (min 32 chars).');
-  console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('JWT') || k.includes('SECRET') || k === 'NODE_ENV'));
+  console.error('⚠️  JWT_SECRET is not configured or is too short (min 32 chars).');
+  console.error('   Set JWT_SECRET in your environment or .env file.');
+  console.error('   Available env vars:', Object.keys(process.env).filter(k => k.includes('JWT') || k.includes('SECRET') || k === 'NODE_ENV'));
+} else {
+  console.log('✓ JWT_SECRET configured (' + process.env.JWT_SECRET.length + ' chars)');
 }
 
 
