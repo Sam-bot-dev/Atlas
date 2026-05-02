@@ -1,7 +1,12 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
+const {
+  calculateMetrics,
+  calculatePeakHours,
+  saveMetrics,
+} = require('../services/metricService');
 
-// @desc    Get all metrics for a business
+// @desc    Get all metrics for a business (with real-time calculation)
 // @route   GET /api/v1/businesses/:bizId/metrics
 // @access  Private
 const getMetrics = asyncHandler(async (req, res) => {
@@ -15,26 +20,31 @@ const getMetrics = asyncHandler(async (req, res) => {
     throw new Error('Business not found');
   }
 
-  const metrics = await prisma.metric.findMany({
-    where: { businessId: req.params.bizId },
-  });
+  // Calculate fresh metrics from data
+  const metrics = await calculateMetrics(req.params.bizId);
+
+  // Save to DB for reference
+  await saveMetrics(req.params.bizId, metrics);
+
+  // Calculate peak hours
+  const peakHours = await calculatePeakHours(req.params.bizId);
 
   // Transform into the summary shape the frontend expects
-  const summary = {};
-  metrics.forEach((m) => {
-    summary[m.key] = {
-      value: m.value,
-      delta: m.delta,
-      label: m.label,
-      unit: m.unit,
-      period: m.period,
-    };
-  });
+  const summary = {
+    revenue: metrics.revenue,
+    orders: metrics.orders,
+    conversion: metrics.conversion,
+    inventory: metrics.inventory,
+    retention: metrics.retention,
+    sentiment: metrics.sentiment,
+    peakHours,
+    calculatedAt: metrics.calculatedAt,
+  };
 
   res.json(summary);
 });
 
-// @desc    Upsert a metric for a business
+// @desc    Upsert a metric for a business (manual override)
 // @route   PUT /api/v1/businesses/:bizId/metrics/:key
 // @access  Private
 const upsertMetric = asyncHandler(async (req, res) => {

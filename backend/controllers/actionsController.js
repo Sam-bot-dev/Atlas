@@ -1,7 +1,10 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
+const { generateActions } = require('../services/actionService');
+const { calculateMetrics } = require('../services/metricService');
+const { generateInsights } = require('../services/insightService');
 
-// @desc    Get all actions for a business
+// @desc    Get all actions for a business (with AI generation)
 // @route   GET /api/v1/businesses/:bizId/actions
 // @access  Private
 const getActions = asyncHandler(async (req, res) => {
@@ -14,9 +17,36 @@ const getActions = asyncHandler(async (req, res) => {
     throw new Error('Business not found');
   }
 
+  // Generate fresh actions if none exist or if older than 6 hours
+  const recentActions = await prisma.action.findMany({
+    where: {
+      businessId: req.params.bizId,
+      createdAt: {
+        gte: new Date(Date.now() - 6 * 60 * 60 * 1000),
+      },
+    },
+  });
+
+  if (recentActions.length === 0) {
+    // Generate new actions
+    const metrics = await calculateMetrics(req.params.bizId);
+    const insightsData = await prisma.insight.findMany({
+      where: { businessId: req.params.bizId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    const insights = insightsData.map((i) => ({
+      ...i,
+      evidence: JSON.parse(i.evidence),
+    }));
+    await generateActions(req.params.bizId, metrics, insights);
+  }
+
+  // Fetch actions
   const actions = await prisma.action.findMany({
     where: { businessId: req.params.bizId },
     orderBy: { createdAt: 'desc' },
+    take: 10,
   });
 
   res.json(
@@ -30,11 +60,11 @@ const getActions = asyncHandler(async (req, res) => {
       urgent: a.urgent,
       status: a.status,
       createdAt: a.createdAt,
-    }))
+    })),
   );
 });
 
-// @desc    Create an action for a business
+// @desc    Create an action for a business (manual)
 // @route   POST /api/v1/businesses/:bizId/actions
 // @access  Private
 const createAction = asyncHandler(async (req, res) => {
