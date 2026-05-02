@@ -13,7 +13,8 @@ const app = express();
 
 // Startup validation
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  console.warn('WARNING: JWT_SECRET is not configured or is too short (min 32 chars). Auth will fail.');
+  console.error('CRITICAL: JWT_SECRET is not configured or is too short (min 32 chars).');
+  console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('JWT') || k.includes('SECRET') || k === 'NODE_ENV'));
 }
 
 

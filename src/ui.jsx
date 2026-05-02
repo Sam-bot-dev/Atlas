@@ -138,24 +138,166 @@ const SectionHeader = ({ eyebrow, title, subtitle, action }) => (
   </div>
 );
 
-const SkeletonLine = ({ width = '100%', height = 12 }) => (
-  <div style={{
-    width,
-    height,
-    background: 'var(--bg-subtle)',
-    borderRadius: 4,
-    animation: 'pulse 1.5s ease-in-out infinite',
-  }}/>
+// ── Skeleton primitives ────────────────────────────────────────────────────────
+
+/** A single shimmer line. width/height can be px numbers or CSS strings like '60%'. */
+const SkeletonLine = ({ width = '100%', height = 12, radius = 4, style = {} }) => (
+  <span
+    className="skeleton"
+    style={{ width, height, borderRadius: radius, display: 'block', ...style }}
+  />
 );
 
+/** A circular shimmer placeholder (avatars, icons). */
 const SkeletonCircle = ({ size = 32 }) => (
-  <div style={{
-    width: size,
-    height: size,
-    borderRadius: '50%',
-    background: 'var(--bg-subtle)',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  }}/>
+  <span
+    className="skeleton"
+    style={{ width: size, height: size, borderRadius: '50%', display: 'block', flexShrink: 0 }}
+  />
 );
 
-export { Icon, AtlasLogo, Delta, BizAvatar, fmtINR, fmtCurrency, fmtNumber, SectionHeader, severityStyle, SkeletonLine, SkeletonCircle };
+// ── Skeleton composites ────────────────────────────────────────────────────────
+
+/**
+ * Mimics a MetricTile card (label · big number · delta).
+ * Matches the exact layout of the real MetricTile component.
+ */
+const SkeletonMetricTile = () => (
+  <div className="card" style={{ padding: 16, minHeight: 110, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {/* label row */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <SkeletonLine width="55%" height={11} />
+      <SkeletonLine width={14} height={14} radius={3} />
+    </div>
+    {/* big value */}
+    <SkeletonLine width="72%" height={26} radius={4} />
+    {/* delta + period */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto' }}>
+      <SkeletonLine width="32%" height={11} />
+      <SkeletonLine width="24%" height={11} />
+    </div>
+  </div>
+);
+
+/**
+ * Mimics an InsightCard (severity badge · title · body · evidence tags).
+ */
+const SkeletonInsightCard = () => (
+  <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    {/* severity badge row */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <SkeletonLine width={22} height={22} radius={5} />
+      <SkeletonLine width="30%" height={10} />
+    </div>
+    {/* title */}
+    <SkeletonLine width="85%" height={14} radius={3} />
+    <SkeletonLine width="60%" height={14} radius={3} style={{ marginTop: -4 }} />
+    {/* body lines */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <SkeletonLine width="100%" height={12} />
+      <SkeletonLine width="90%"  height={12} />
+      <SkeletonLine width="70%"  height={12} />
+    </div>
+    {/* footer: tags + button */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-subtle)', marginTop: 'auto' }}>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <SkeletonLine width={52} height={20} radius={999} />
+        <SkeletonLine width={64} height={20} radius={999} />
+        <SkeletonLine width={44} height={20} radius={999} />
+      </div>
+      <SkeletonLine width={68} height={28} radius={6} />
+    </div>
+  </div>
+);
+
+/**
+ * Mimics an ActionCard (icon · title · body · impact/effort/confidence grid · buttons).
+ */
+const SkeletonActionCard = () => (
+  <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    {/* title row */}
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <SkeletonLine width={22} height={22} radius={5} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 2 }}>
+        <SkeletonLine width="80%" height={14} />
+        <SkeletonLine width="55%" height={14} />
+      </div>
+    </div>
+    {/* body lines */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <SkeletonLine width="100%" height={12} />
+      <SkeletonLine width="85%"  height={12} />
+    </div>
+    {/* impact / effort / confidence grid */}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '12px 0', borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <SkeletonLine width="60%" height={9} />
+          <SkeletonLine width="45%" height={13} />
+        </div>
+      ))}
+    </div>
+    {/* action buttons */}
+    <div style={{ display: 'flex', gap: 8 }}>
+      <SkeletonLine style={{ flex: 1 }} height={32} radius={6} />
+      <SkeletonLine width={96} height={32} radius={6} />
+      <SkeletonLine width={32} height={32} radius={6} />
+    </div>
+  </div>
+);
+
+/**
+ * A single shimmer table row — use multiple to fill a list.
+ * `cols` is an array of widths for each cell, e.g. ['40%', '20%', '20%', 80]
+ */
+const SkeletonTableRow = ({ cols = ['50%', '25%', '15%'], height = 48, last = false }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    padding: '0 18px',
+    height,
+    borderBottom: last ? 'none' : '1px solid var(--border-subtle)',
+  }}>
+    {cols.map((w, i) => (
+      <SkeletonLine key={i} width={w} height={12} style={i > 0 ? { marginLeft: 'auto' } : {}} />
+    ))}
+  </div>
+);
+
+/**
+ * A shimmer block that stands in for a chart area.
+ * Renders a subtle wave pattern to imply "graph loading".
+ */
+const SkeletonChart = ({ height = 180 }) => (
+  <div
+    className="skeleton"
+    style={{ width: '100%', height, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
+  >
+    {/* faint bar silhouettes so it reads as "chart" not just a blank box */}
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%', display: 'flex', alignItems: 'flex-end', gap: 4, padding: '0 8px 8px' }}>
+      {[55, 72, 48, 83, 62, 91, 70, 58, 76, 65, 88, 74].map((h, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1,
+            height: `${h}%`,
+            borderRadius: '3px 3px 0 0',
+            background: 'rgba(255,255,255,0.07)',
+          }}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+export {
+  Icon, AtlasLogo, Delta, BizAvatar,
+  fmtINR, fmtCurrency, fmtNumber,
+  SectionHeader, severityStyle,
+  // Skeleton primitives
+  SkeletonLine, SkeletonCircle,
+  // Skeleton composites
+  SkeletonMetricTile, SkeletonInsightCard, SkeletonActionCard,
+  SkeletonTableRow, SkeletonChart,
+};

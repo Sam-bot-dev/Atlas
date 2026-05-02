@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icon, Delta, fmtINR, SectionHeader, SkeletonLine, SkeletonCircle } from './ui';
+import { Icon, Delta, fmtINR, SectionHeader, SkeletonLine, SkeletonCircle, SkeletonChart, SkeletonTableRow } from './ui';
 import { LineChart, BarChart } from './charts';
 import { AtlasAPI } from './api';
 
@@ -15,9 +15,7 @@ export const Analytics = ({ business: initialBusiness }) => {
     if (!initialBusiness.id || initialBusiness.id.startsWith('demo-')) return;
     setLoading(true);
     AtlasAPI.metrics.summary(initialBusiness.id, range)
-      .then(res => {
-        if (res && Object.keys(res).length > 0) setMetrics(res);
-      })
+      .then(res => { if (res && Object.keys(res).length > 0) setMetrics(res); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [initialBusiness.id, range]);
@@ -47,46 +45,90 @@ export const Analytics = ({ business: initialBusiness }) => {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 18 }}>
+        {/* Revenue card */}
+        <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Revenue</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
-            {loading ? <SkeletonLine width="60%" height={24}/> : <>{fmtINR(revenue.value)} <Delta value={revenue.delta}/></>}
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12, minHeight: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {loading
+              ? <SkeletonLine width="50%" height={24} />
+              : <>{fmtINR(revenue.value)} <Delta value={revenue.delta}/></>
+            }
           </div>
-          <LineChart data={initialBusiness.revenueSeries} height={220} accent="var(--ink-1)"/>
+          {loading
+            ? <SkeletonChart height={220} />
+            : <LineChart data={initialBusiness.revenueSeries} height={220} accent="var(--ink-1)"/>
+          }
         </div>
+
+        {/* Customer growth card */}
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Customer growth</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{(initialBusiness.customerGrowth || []).length > 0 ? (initialBusiness.customerGrowth[initialBusiness.customerGrowth.length-1].v.toLocaleString('en-IN')) : '0'}</div>
-          <LineChart data={initialBusiness.customerGrowth || []} height={220} accent="#1e40af"/>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12, minHeight: 32, display: 'flex', alignItems: 'center' }}>
+            {loading
+              ? <SkeletonLine width="45%" height={24} />
+              : (initialBusiness.customerGrowth || []).length > 0
+                ? initialBusiness.customerGrowth[initialBusiness.customerGrowth.length - 1].v.toLocaleString('en-IN')
+                : '0'
+            }
+          </div>
+          {loading
+            ? <SkeletonChart height={220} />
+            : <LineChart data={initialBusiness.customerGrowth || []} height={220} accent="#1e40af"/>
+          }
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Orders by day */}
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Orders by day</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{(initialBusiness.ordersSeries || []).reduce((s, d) => s + d.v, 0).toLocaleString('en-IN')} <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>this week</span></div>
-          <BarChart data={initialBusiness.ordersSeries || []} height={220} accent="var(--ink-1)"/>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12, minHeight: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {loading
+              ? <SkeletonLine width="40%" height={24} />
+              : <>{(initialBusiness.ordersSeries || []).reduce((s, d) => s + d.v, 0).toLocaleString('en-IN')} <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>this week</span></>
+            }
+          </div>
+          {loading
+            ? <SkeletonChart height={220} />
+            : <BarChart data={initialBusiness.ordersSeries || []} height={220} accent="var(--ink-1)"/>
+          }
         </div>
+
+        {/* Top movers */}
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12 }}>Top movers</div>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ fontSize: 11, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                <th style={{ textAlign: 'left', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontWeight: 500 }}>Item</th>
-                <th style={{ textAlign: 'right', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontWeight: 500 }}>Units</th>
-                <th style={{ textAlign: 'right', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontWeight: 500 }}>Δ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(initialBusiness.topMovers || []).map(([name, u, d], i, arr) => (
-                <tr key={i}>
-                  <td style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>{name}</td>
-                  <td style={{ textAlign: 'right', padding: '10px 0', fontFamily: 'var(--font-mono)', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>{u}</td>
-                  <td style={{ textAlign: 'right', padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}><Delta value={d}/></td>
-                </tr>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {/* header shimmer */}
+              <div style={{ display: 'flex', gap: 12, paddingBottom: 10, borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
+                <SkeletonLine width="40%" height={10} />
+                <SkeletonLine width="20%" height={10} style={{ marginLeft: 'auto' }} />
+                <SkeletonLine width="15%" height={10} />
+              </div>
+              {[0,1,2,3,4].map(i => (
+                <SkeletonTableRow key={i} cols={['45%', '20%', '15%']} last={i === 4} />
               ))}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ fontSize: 11, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ textAlign: 'left', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontWeight: 500 }}>Item</th>
+                  <th style={{ textAlign: 'right', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontWeight: 500 }}>Units</th>
+                  <th style={{ textAlign: 'right', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontWeight: 500 }}>Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(initialBusiness.topMovers || []).map(([name, u, d], i, arr) => (
+                  <tr key={i}>
+                    <td style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>{name}</td>
+                    <td style={{ textAlign: 'right', padding: '10px 0', fontFamily: 'var(--font-mono)', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>{u}</td>
+                    <td style={{ textAlign: 'right', padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}><Delta value={d}/></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
@@ -101,13 +143,9 @@ export const DataSources = ({ business, onRefresh }) => {
 
   React.useEffect(() => {
     let cancelled = false;
-
     AtlasAPI.uploads.list(business.id)
-      .then((jobs) => {
-        if (!cancelled && jobs) setUploadJobs(jobs);
-      })
+      .then((jobs) => { if (!cancelled && jobs) setUploadJobs(jobs); })
       .catch(() => {});
-
     return () => { cancelled = true; };
   }, [business.id]);
 
@@ -140,34 +178,24 @@ export const DataSources = ({ business, onRefresh }) => {
   };
 
   const pollUpload = async (uploadId) => {
-    for (let i = 0; i < 30; i += 1) {
+    for (let i = 0; i < 30; i++) {
       const status = await AtlasAPI.uploads.status(business.id, uploadId);
       setUploadJobs(prev => [status, ...prev.filter(job => job.id !== status.id)]);
       setProcessing(`${status.stage}…`);
-
       if (status.status === 'complete') {
         setProcessing('Data ready');
         if (onRefresh) onRefresh();
         setTimeout(() => setProcessing(null), 900);
         return;
       }
-
-      if (status.status === 'failed') {
-        throw new Error(status.error || 'Processing failed');
-      }
-
+      if (status.status === 'failed') throw new Error(status.error || 'Processing failed');
       await new Promise(resolve => setTimeout(resolve, 1200));
     }
-
     throw new Error('Upload still processing. Check again shortly.');
   };
 
   const uploadFile = async (file) => {
-    if (!file) {
-      simulateUpload();
-      return;
-    }
-
+    if (!file) { simulateUpload(); return; }
     setProcessing('Extracting structure…');
     try {
       const accepted = await AtlasAPI.uploads.upload(business.id, file);
@@ -179,8 +207,7 @@ export const DataSources = ({ business, onRefresh }) => {
   };
 
   const handleFiles = (files) => {
-    const file = files?.[0];
-    uploadFile(file);
+    uploadFile(files?.[0]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -246,11 +273,10 @@ export const DataSources = ({ business, onRefresh }) => {
               <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{s.last}</div>
             </div>
             {s.status === 'connected' && <span className="badge badge-positive"><span className="dot dot-positive"/> Connected</span>}
-            {s.status === 'available' ? (
-              <button className="btn btn-sm">Connect</button>
-            ) : (
-              <button className="btn btn-ghost btn-sm"><Icon name="more" size={14}/></button>
-            )}
+            {s.status === 'available'
+              ? <button className="btn btn-sm">Connect</button>
+              : <button className="btn btn-ghost btn-sm"><Icon name="more" size={14}/></button>
+            }
           </div>
         ))}
       </div>
@@ -271,7 +297,7 @@ export const Automations = ({ business }) => {
     setLoading(true);
     Promise.all([
       AtlasAPI.automations.list(business.id),
-      AtlasAPI.automations.suggested(business.id)
+      AtlasAPI.automations.suggested(business.id),
     ]).then(([activeList, suggestedList]) => {
       setAutos(activeList || []);
       setSuggested(suggestedList || []);
@@ -304,27 +330,52 @@ export const Automations = ({ business }) => {
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
       <SectionHeader eyebrow="Run on autopilot" title="Automations" subtitle="Rules that run when conditions are met."/>
-      
+
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--ink-2)' }}>Active Automations</div>
-      <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 0, marginBottom: 32 }}>
-        {autos.map((a, i) => (
-          <div key={a.id} style={{ padding: '16px 18px', borderBottom: i === autos.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>WHEN</span>
-                <span style={{ fontWeight: 500 }}>{a.trigger}</span>
-                <Icon name="arrow-right" size={12}/>
-                <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>DO</span>
-                <span style={{ fontWeight: 500 }}>{a.action}</span>
+      <div className="card" style={{ padding: 0, marginBottom: 32, overflow: 'hidden' }}>
+        {loading ? (
+          // Skeleton rows — same structure as real rows
+          [0, 1, 2].map(i => (
+            <div key={i} style={{ padding: '16px 18px', borderBottom: i === 2 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* WHEN → DO row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SkeletonLine width={36} height={10} />
+                  <SkeletonLine width={100} height={13} />
+                  <SkeletonLine width={16} height={10} />
+                  <SkeletonLine width={28} height={10} />
+                  <SkeletonLine width={110} height={13} />
+                </div>
+                {/* last run line */}
+                <SkeletonLine width="35%" height={10} />
               </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>Last run: {a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : 'Never'}</div>
+              <SkeletonLine width={72} height={30} radius={6} />
             </div>
-            <button onClick={() => toggle(a.id)} className={`btn btn-sm ${a.status === 'active' ? 'btn-positive' : 'btn-ghost'}`}>
-              {a.status === 'active' ? 'Active' : 'Paused'}
-            </button>
-          </div>
-        ))}
-        {autos.length === 0 && !loading && <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No active automations.</div>}
+          ))
+        ) : (
+          <>
+            {autos.map((a, i) => (
+              <div key={a.id} style={{ padding: '16px 18px', borderBottom: i === autos.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>WHEN</span>
+                    <span style={{ fontWeight: 500 }}>{a.trigger}</span>
+                    <Icon name="arrow-right" size={12}/>
+                    <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>DO</span>
+                    <span style={{ fontWeight: 500 }}>{a.action}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>Last run: {a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : 'Never'}</div>
+                </div>
+                <button onClick={() => toggle(a.id)} className={`btn btn-sm ${a.status === 'active' ? 'btn-positive' : 'btn-ghost'}`}>
+                  {a.status === 'active' ? 'Active' : 'Paused'}
+                </button>
+              </div>
+            ))}
+            {autos.length === 0 && (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No active automations.</div>
+            )}
+          </>
+        )}
       </div>
 
       {suggested.length > 0 && (
@@ -366,6 +417,7 @@ export const Reports = ({ business }) => {
   const download = (r) => {
     if (business.id.startsWith('demo-')) {
       alert('Reports are available for registered businesses. Generating demo PDF...');
+      return;
     }
     window.open(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/businesses/${business.id}/reports/${r.id}/download`, '_blank');
   };
@@ -374,7 +426,7 @@ export const Reports = ({ business }) => {
     setLoading(true);
     try {
       const newRep = await AtlasAPI.reports.generate(business.id, 'weekly');
-      setReports([newRep, ...reports]);
+      setReports(prev => [newRep, ...prev]);
     } catch (e) {
       alert('Failed to generate report: ' + e.message);
     } finally {
@@ -384,23 +436,42 @@ export const Reports = ({ business }) => {
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader 
-        title="Reports" 
+      <SectionHeader
+        title="Reports"
         subtitle="Exportable summaries generated by Atlas AI."
         action={<button className="btn btn-primary btn-sm" onClick={generate} disabled={loading}><Icon name="plus" size={13}/> Generate latest</button>}
       />
-      <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 0 }}>
-        {reports.map((r, i) => (
-          <div key={r.id || i} style={{ padding: '16px 18px', borderBottom: i === reports.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
-             <div style={{ flex: 1 }}>
-               <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</div>
-               <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{r.desc || `${new Date(r.createdAt).toLocaleDateString()} · ${r.type}`}</div>
-             </div>
-             <button className="btn btn-sm" onClick={() => download(r)}><Icon name="download" size={13}/></button>
-          </div>
-        ))}
-        {reports.length === 0 && !loading && (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No reports found. Click generate to create one.</div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {loading ? (
+          [0, 1, 2].map(i => (
+            <div key={i} style={{ padding: '16px 18px', borderBottom: i === 2 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* file icon placeholder */}
+              <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 6, flexShrink: 0 }}/>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SkeletonLine width="55%" height={13} />
+                <SkeletonLine width="35%" height={10} />
+              </div>
+              <SkeletonLine width={36} height={30} radius={6} />
+            </div>
+          ))
+        ) : (
+          <>
+            {reports.map((r, i) => (
+              <div key={r.id || i} style={{ padding: '16px 18px', borderBottom: i === reports.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name="file" size={15} color="var(--ink-2)"/>
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{r.desc || `${new Date(r.createdAt).toLocaleDateString()} · ${r.type}`}</div>
+                </div>
+                <button className="btn btn-sm" onClick={() => download(r)}><Icon name="download" size={13}/></button>
+              </div>
+            ))}
+            {reports.length === 0 && (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No reports found. Click generate to create one.</div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -416,17 +487,15 @@ export const Settings = ({ business }) => {
     if (!business.id.startsWith('demo-')) {
       setLoading(true);
       AtlasAPI.settings.get(business.id)
-        .then(data => {
-          if (data && data.goals) setGoals(data.goals);
-        })
+        .then(data => { if (data && data.goals) setGoals(data.goals); })
         .finally(() => setLoading(false));
     }
   }, [business.id]);
 
   const goalOptions = [
-    { id: 'rev', label: 'Increase revenue' },
-    { id: 'csat', label: 'Improve customer satisfaction' },
-    { id: 'inv', label: 'Optimize inventory' },
+    { id: 'rev',    label: 'Increase revenue' },
+    { id: 'csat',   label: 'Improve customer satisfaction' },
+    { id: 'inv',    label: 'Optimize inventory' },
     { id: 'delays', label: 'Reduce delays' },
     { id: 'repeat', label: 'Increase repeat customers' },
   ];
@@ -452,47 +521,59 @@ export const Settings = ({ business }) => {
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 760, margin: '0 auto' }}>
       <SectionHeader eyebrow="Workspace" title="Settings" subtitle="Workspace, goals, and data preferences."/>
-      
+
+      {/* Business info card */}
       <div className="card" style={{ padding: 24, marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Business info</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label className="eyebrow">Name</label>
-            <input className="input" defaultValue={business.name} disabled/>
-          </div>
-          <div>
-            <label className="eyebrow">Type</label>
-            <input className="input" defaultValue={business.type} disabled/>
-          </div>
-          <div>
-            <label className="eyebrow">Address</label>
-            <input className="input" defaultValue={business.address} disabled/>
-          </div>
+          {loading ? (
+            [0, 1, 2].map(i => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SkeletonLine width="20%" height={10} />
+                <SkeletonLine width="100%" height={38} radius={6} />
+              </div>
+            ))
+          ) : (
+            <>
+              <div><label className="eyebrow">Name</label><input className="input" defaultValue={business.name} disabled/></div>
+              <div><label className="eyebrow">Type</label><input className="input" defaultValue={business.type} disabled/></div>
+              <div><label className="eyebrow">Address</label><input className="input" defaultValue={business.address} disabled/></div>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Goals card */}
       <div className="card" style={{ padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Business goals</div>
-          <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</button>
+          <button className="btn btn-primary btn-sm" onClick={save} disabled={saving || loading}>
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {goalOptions.map(g => {
-            const sel = goals.includes(g.id);
-            return (
-              <button key={g.id} className="card" style={{
-                padding: '12px 14px', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                border: sel ? '1px solid var(--ink-1)' : '1px solid var(--border)',
-                background: sel ? 'var(--bg-subtle)' : 'var(--bg-elevated)',
-              }} onClick={() => toggleGoal(g.id)}>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>{g.label}</span>
-                <div style={{ width: 16, height: 16, borderRadius: 4, border: sel ? '1px solid var(--ink-1)' : '1px solid var(--border-strong)', background: sel ? 'var(--ink-1)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {sel && <Icon name="check" size={10} strokeWidth={2.5} color="white"/>}
-                </div>
-              </button>
-            );
-          })}
+          {loading ? (
+            [0, 1, 2, 3, 4].map(i => (
+              <SkeletonLine key={i} width="100%" height={44} radius={8} />
+            ))
+          ) : (
+            goalOptions.map(g => {
+              const sel = goals.includes(g.id);
+              return (
+                <button key={g.id} className="card" style={{
+                  padding: '12px 14px', textAlign: 'left', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  border: sel ? '1px solid var(--ink-1)' : '1px solid var(--border)',
+                  background: sel ? 'var(--bg-subtle)' : 'var(--bg-elevated)',
+                }} onClick={() => toggleGoal(g.id)}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{g.label}</span>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, border: sel ? '1px solid var(--ink-1)' : '1px solid var(--border-strong)', background: sel ? 'var(--ink-1)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {sel && <Icon name="check" size={10} strokeWidth={2.5} color="white"/>}
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
