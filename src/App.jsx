@@ -87,7 +87,22 @@ export default function App() {
     try { sessionStorage.setItem('atlas-state', JSON.stringify({ view, bizId, page })); } catch (e) {}
   }, [view, bizId, page]);
 
-  const handleDemo = (id) => { setBizId(id); setView('dashboard'); setPage('overview'); };
+  const handleDemo = async (id) => {
+    import('./api').then(async ({ AtlasAPI }) => {
+      try {
+        const user = await AtlasAPI.auth.login('demo@atlas.ai', 'atlas123');
+        setCurrentUser(user);
+        setBizId(id);
+        setView('dashboard');
+        setPage('overview');
+      } catch (e) {
+        // Fallback if login fails
+        setBizId(id);
+        setView('dashboard');
+        setPage('overview');
+      }
+    });
+  };
   const handleLogin = (user) => { if (user) setCurrentUser(user); setView('dashboard'); };
   const handleOnboardComplete = (user) => { if (user) setCurrentUser(user); setView('dashboard'); setPage('overview'); };
 

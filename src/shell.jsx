@@ -152,7 +152,7 @@ const AskAtlas = ({ onClose, business }) => {
     if (!query.trim()) return;
     setLoading(true);
     setAnswer(null);
-    AtlasAPI.ask(business.id, query)
+    AtlasAPI.insights.ask(business.id, query)
       .then(r => { setLoading(false); setAnswer(r.answer || r.text || 'Response received.'); })
       .catch(e => { setLoading(false); setAnswer('Error generating reasoning insight. Please try again.'); });
   };

@@ -2,12 +2,18 @@ import React from 'react';
 import { AtlasLogo, Icon } from './ui';
 import { AtlasAPI } from './api';
 
+const PERSIST_KEY = 'atlas-onboarding-state';
+
 export const Login = ({ onLogin, onBack, onSignup }) => {
-  const [email, setEmail] = React.useState('demo@atlas.ai');
-  const [password, setPassword] = React.useState('password123');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      alert('Please enter both email and password.');
+      return;
+    }
     setLoading(true);
     try {
       const user = await AtlasAPI.auth.login(email, password);
@@ -17,6 +23,10 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogle = () => {
+    alert('Google Login is currently in beta. Please use your email and password for now.');
   };
 
   return (
@@ -31,7 +41,7 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 8 }}>Welcome back</div>
           <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32 }}>Log in to your Atlas workspace.</div>
-          <button className="btn btn-lg" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }}>
+          <button className="btn btn-lg" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }} onClick={handleGoogle}>
             <Icon name="google" size={16}/>
             Continue with Google
           </button>
@@ -43,18 +53,19 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Email</label>
-              <input className="input" value={email} onChange={(e) => setEmail(e.target.value)}/>
+              <input className="input" placeholder="demo@atlas.ai" value={email} onChange={(e) => setEmail(e.target.value)}/>
             </div>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)' }}>Password</label>
                 <a style={{ fontSize: 12, color: 'var(--ink-3)', cursor: 'pointer' }}>Forgot?</a>
               </div>
-              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}/>
+              <input className="input" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}/>
             </div>
             <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} onClick={handleLogin} disabled={loading}>
               {loading ? 'Logging in...' : 'Log in'}
             </button>
+              Demo: <code style={{ color: 'var(--ink-2)' }}>demo@atlas.ai</code> / <code style={{ color: 'var(--ink-2)' }}>atlas123</code>
           </div>
           <div style={{ fontSize: 11, color: 'var(--ink-4)', textAlign: 'center', marginTop: 32 }}>
             Protected by SOC 2 Type II controls.
@@ -74,14 +85,34 @@ export const Onboarding = ({ onComplete, onBack }) => {
   const [bizAddr, setBizAddr] = React.useState('Shop 4, Aundh Market, Pune, Maharashtra 411007');
   const [bizType, setBizType] = React.useState('Home Baker');
   const [goals, setGoals] = React.useState(['rev', 'repeat']);
-  const [uploads, setUploads] = React.useState([
-    { name: 'Q1-sales-export.csv', kind: 'csv', size: '184 KB' },
-  ]);
+  const [uploads, setUploads] = React.useState([]);
   const [integrations, setIntegrations] = React.useState({ gbiz: true, square: false, ig: false, shop: false });
   
   // New account state
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+
+  // Persist state
+  React.useEffect(() => {
+    const saved = sessionStorage.getItem(PERSIST_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setStep(parsed.step || 0);
+        setBizName(parsed.bizName || "Priya's Bakes");
+        setBizAddr(parsed.bizAddr || "");
+        setBizType(parsed.bizType || "Business");
+        setGoals(parsed.goals || []);
+        setEmail(parsed.email || "");
+        setDetectDone(parsed.detectDone || false);
+      } catch (e) {}
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const state = { step, bizName, bizAddr, bizType, goals, email, detectDone };
+    sessionStorage.setItem(PERSIST_KEY, JSON.stringify(state));
+  }, [step, bizName, bizAddr, bizType, goals, email, detectDone]);
 
   const steps = ['Business', 'Detection', 'Data', 'Goals', 'Account'];
   const goalOptions = [
@@ -118,6 +149,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
       try {
         const user = await AtlasAPI.auth.signup({ email, password, name: bizName });
         await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr });
+        sessionStorage.removeItem(PERSIST_KEY);
         onComplete(user);
       } catch (e) {
         alert('Setup failed: ' + e.message);
@@ -171,11 +203,11 @@ export const Onboarding = ({ onComplete, onBack }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Business name</label>
-                  <input className="input" value={bizName} onChange={(e) => setBizName(e.target.value)}/>
+                  <input className="input" placeholder="e.g. Priya's Bakes" value={bizName} onChange={(e) => setBizName(e.target.value)}/>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Address</label>
-                  <input className="input" value={bizAddr} onChange={(e) => setBizAddr(e.target.value)}/>
+                  <input className="input" placeholder="Shop address in Pune, Mumbai, etc." value={bizAddr} onChange={(e) => setBizAddr(e.target.value)}/>
                   <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 6 }}>Used to pull local data — weather, foot traffic, competitor benchmarks.</div>
                 </div>
               </div>

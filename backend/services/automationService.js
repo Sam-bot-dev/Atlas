@@ -9,6 +9,12 @@ const { createTask } = require('./taskService');
  */
 
 async function evaluateAutomations(businessId, triggerEvent, payloadData) {
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    include: { user: true }
+  });
+  const ownerEmail = business?.user?.email || 'owner@business.com';
+
   const automations = await prisma.automation.findMany({
     where: { businessId, status: 'active', trigger: triggerEvent },
   });
@@ -17,7 +23,7 @@ async function evaluateAutomations(businessId, triggerEvent, payloadData) {
     const payloadInfo = JSON.parse(auto.payload || '{}');
     
     if (auto.actionType === 'email_alert') {
-      await sendEmailAlert(payloadInfo.to || 'owner@business.com', `Alert: ${triggerEvent}`, JSON.stringify(payloadData));
+      await sendEmailAlert(payloadInfo.to || ownerEmail, `Alert: ${triggerEvent}`, JSON.stringify(payloadData));
     } else if (auto.actionType === 'webhook_post') {
       if (payloadInfo.url) {
         await dispatchWebhook(payloadInfo.url, { trigger: triggerEvent, data: payloadData });

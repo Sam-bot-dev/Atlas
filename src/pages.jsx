@@ -258,13 +258,54 @@ export const DataSources = ({ business }) => {
 };
 
 export const Automations = ({ business }) => {
-  const [autos, setAutos] = React.useState(business.automations || []);
-  const toggle = (id) => setAutos(autos.map(a => a.id === id ? { ...a, status: a.status === 'active' ? 'paused' : 'active' } : a));
+  const [autos, setAutos] = React.useState([]);
+  const [suggested, setSuggested] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!business.id || business.id.startsWith('demo-')) {
+      setAutos(business.automations || []);
+      return;
+    }
+    setLoading(true);
+    Promise.all([
+      AtlasAPI.automations.list(business.id),
+      AtlasAPI.automations.suggested(business.id)
+    ]).then(([activeList, suggestedList]) => {
+      setAutos(activeList || []);
+      setSuggested(suggestedList || []);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, [business.id]);
+
+  const toggle = async (id) => {
+    if (business.id.startsWith('demo-')) {
+      setAutos(autos.map(a => a.id === id ? { ...a, status: a.status === 'active' ? 'paused' : 'active' } : a));
+      return;
+    }
+    try {
+      const updated = await AtlasAPI.automations.toggle(business.id, id);
+      setAutos(autos.map(a => a.id === id ? updated : a));
+    } catch (e) {
+      alert('Failed to toggle automation: ' + e.message);
+    }
+  };
+
+  const enableSuggested = async (s) => {
+    try {
+      const created = await AtlasAPI.automations.create(business.id, { trigger: s.trigger, action: s.action });
+      setAutos([...autos, created]);
+      setSuggested(suggested.filter(x => x.trigger !== s.trigger));
+    } catch (e) {
+      alert('Failed to enable automation: ' + e.message);
+    }
+  };
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
       <SectionHeader eyebrow="Run on autopilot" title="Automations" subtitle="Rules that run when conditions are met."/>
-      <div className="card" style={{ padding: 0 }}>
+      
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--ink-2)' }}>Active Automations</div>
+      <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 0, marginBottom: 32 }}>
         {autos.map((a, i) => (
           <div key={a.id} style={{ padding: '16px 18px', borderBottom: i === autos.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ flex: 1 }}>
@@ -275,43 +316,131 @@ export const Automations = ({ business }) => {
                 <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>DO</span>
                 <span style={{ fontWeight: 500 }}>{a.action}</span>
               </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>Last run: {a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : 'Never'}</div>
             </div>
-            <button onClick={() => toggle(a.id)} className="btn btn-ghost btn-sm">{a.status}</button>
+            <button onClick={() => toggle(a.id)} className={`btn btn-sm ${a.status === 'active' ? 'btn-positive' : 'btn-ghost'}`}>
+              {a.status === 'active' ? 'Active' : 'Paused'}
+            </button>
           </div>
         ))}
-        {autos.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No automations yet.</div>}
+        {autos.length === 0 && !loading && <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No active automations.</div>}
       </div>
+
+      {suggested.length > 0 && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--ink-2)' }}>Suggested for your business type</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {suggested.map((s, i) => (
+              <div key={i} className="card" style={{ padding: 18 }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 8 }}>{s.trigger}</div>
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{s.action}</div>
+                <button onClick={() => enableSuggested(s)} className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Enable</button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export const Reports = ({ business }) => {
-  const reports = [
-    { name: 'Weekly performance brief', desc: 'Last 7 days · executive summary + 3 actions', date: 'May 1, 2026', size: '4 pages' },
-  ];
+  const [reports, setReports] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!business.id || business.id.startsWith('demo-')) {
+      setReports([
+        { id: 'rep-1', name: 'Weekly performance brief', desc: 'Last 7 days · executive summary + 3 actions', date: 'May 1, 2026', size: '4 pages' },
+      ]);
+      return;
+    }
+    setLoading(true);
+    AtlasAPI.reports.list(business.id)
+      .then(setReports)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [business.id]);
+
+  const download = (r) => {
+    if (business.id.startsWith('demo-')) {
+      alert('Reports are available for registered businesses. Generating demo PDF...');
+    }
+    window.open(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/businesses/${business.id}/reports/${r.id}/download`, '_blank');
+  };
+
+  const generate = async () => {
+    setLoading(true);
+    try {
+      const newRep = await AtlasAPI.reports.generate(business.id, 'weekly');
+      setReports([newRep, ...reports]);
+    } catch (e) {
+      alert('Failed to generate report: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader title="Reports" subtitle="Exportable summaries."/>
-      <div className="card" style={{ padding: 0 }}>
+      <SectionHeader 
+        title="Reports" 
+        subtitle="Exportable summaries generated by Atlas AI."
+        action={<button className="btn btn-primary btn-sm" onClick={generate} disabled={loading}><Icon name="plus" size={13}/> Generate latest</button>}
+      />
+      <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 0 }}>
         {reports.map((r, i) => (
-          <div key={i} style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div key={r.id || i} style={{ padding: '16px 18px', borderBottom: i === reports.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
              <div style={{ flex: 1 }}>
                <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</div>
-               <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{r.desc}</div>
+               <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{r.desc || `${new Date(r.createdAt).toLocaleDateString()} · ${r.type}`}</div>
              </div>
-             <button className="btn btn-sm"><Icon name="download" size={13}/></button>
+             <button className="btn btn-sm" onClick={() => download(r)}><Icon name="download" size={13}/></button>
           </div>
         ))}
+        {reports.length === 0 && !loading && (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No reports found. Click generate to create one.</div>
+        )}
       </div>
     </div>
   );
 };
 
 export const Settings = ({ business }) => {
+  const [goals, setGoals] = React.useState(business.goals || []);
+  const [saving, setSaving] = React.useState(false);
+
+  const goalOptions = [
+    { id: 'rev', label: 'Increase revenue' },
+    { id: 'csat', label: 'Improve customer satisfaction' },
+    { id: 'inv', label: 'Optimize inventory' },
+    { id: 'delays', label: 'Reduce delays' },
+    { id: 'repeat', label: 'Increase repeat customers' },
+  ];
+
+  const toggleGoal = (id) => setGoals(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id]);
+
+  const save = async () => {
+    if (business.id.startsWith('demo-')) {
+      alert('Settings persistence is available for registered businesses.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await AtlasAPI.settings.updateGoals(business.id, goals);
+      alert('Goals updated successfully!');
+    } catch (e) {
+      alert('Failed to update goals: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 760, margin: '0 auto' }}>
       <SectionHeader eyebrow="Workspace" title="Settings" subtitle="Workspace, goals, and data preferences."/>
-      <div className="card" style={{ padding: 24 }}>
+      
+      <div className="card" style={{ padding: 24, marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Business info</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
@@ -322,6 +451,35 @@ export const Settings = ({ business }) => {
             <label className="eyebrow">Type</label>
             <input className="input" defaultValue={business.type} disabled/>
           </div>
+          <div>
+            <label className="eyebrow">Address</label>
+            <input className="input" defaultValue={business.address} disabled/>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Business goals</div>
+          <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {goalOptions.map(g => {
+            const sel = goals.includes(g.id);
+            return (
+              <button key={g.id} className="card" style={{
+                padding: '12px 14px', textAlign: 'left', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                border: sel ? '1px solid var(--ink-1)' : '1px solid var(--border)',
+                background: sel ? 'var(--bg-subtle)' : 'var(--bg-elevated)',
+              }} onClick={() => toggleGoal(g.id)}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>{g.label}</span>
+                <div style={{ width: 16, height: 16, borderRadius: 4, border: sel ? '1px solid var(--ink-1)' : '1px solid var(--border-strong)', background: sel ? 'var(--ink-1)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {sel && <Icon name="check" size={10} strokeWidth={2.5} color="white"/>}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

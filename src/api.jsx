@@ -90,6 +90,7 @@ const AtlasAPI = {
   insights: {
     list: (bizId) => get(`/businesses/${bizId}/insights`),
     explain: (bizId, insightId) => get(`/businesses/${bizId}/insights/${insightId}/explain`),
+    ask: (bizId, query) => post(`/businesses/${bizId}/ask`, { query }),
   },
   actions: {
     list: (bizId) => get(`/businesses/${bizId}/actions`),
@@ -104,7 +105,6 @@ const AtlasAPI = {
     delete: (bizId, autoId) => del(`/businesses/${bizId}/automations/${autoId}`),
     suggested: (bizId) => get(`/businesses/${bizId}/automations/suggested`),
   },
-  ask: (bizId, query) => post(`/businesses/${bizId}/ask`, { query }),
   reports: {
     list: (bizId) => get(`/businesses/${bizId}/reports`),
     generate: (bizId, type) => post(`/businesses/${bizId}/reports`, { type }),

@@ -1,9 +1,23 @@
-/**
- * Notification & Alerting Engine (Stubs for Phase 5)
- */
+const { Resend } = require('resend');
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 async function sendEmailAlert(to, subject, body) {
-  // Integration point for SendGrid, AWS SES, etc.
+  if (resend) {
+    try {
+      await resend.emails.send({
+        from: 'Atlas AI <alerts@atlas.ai>',
+        to: [to],
+        subject: subject,
+        html: `<strong>${subject}</strong><p>${body}</p>`,
+      });
+      return true;
+    } catch (error) {
+      console.error('[NOTIFICATION: Email] Failed:', error);
+    }
+  }
+  
+  // Fallback / Integration point for SendGrid, AWS SES, etc.
   console.log(`[NOTIFICATION: Email] To: ${to} | Subject: ${subject}`);
   return true;
 }
