@@ -5,9 +5,26 @@ import { AtlasAPI } from './api';
 
 // Atlas — Other dashboard pages: Analytics, Sources, Automations, Reports, Settings
 
-export const Analytics = ({ business }) => {
+export const Analytics = ({ business: initialBusiness }) => {
   const [range, setRange] = React.useState('6M');
   const [cat, setCat] = React.useState('All');
+  const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!initialBusiness.id || initialBusiness.id.startsWith('demo-')) return;
+    setLoading(true);
+    AtlasAPI.metrics.summary(initialBusiness.id, range)
+      .then(res => {
+        if (res && Object.keys(res).length > 0) setMetrics(res);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [initialBusiness.id, range]);
+
+  const fallbackMetric = { value: 0, delta: 0, label: 'No data', unit: '', period: '' };
+  const revenue = metrics.revenue || initialBusiness.metrics?.revenue || fallbackMetric;
+
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
       <SectionHeader
@@ -30,23 +47,25 @@ export const Analytics = ({ business }) => {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div className="card" style={{ padding: 18 }}>
+        <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Revenue</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{fmtINR(business.metrics.revenue.value)} <Delta value={business.metrics.revenue.delta}/></div>
-          <LineChart data={business.revenueSeries} height={220} accent="var(--ink-1)"/>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
+            {fmtINR(revenue.value)} <Delta value={revenue.delta}/>
+          </div>
+          <LineChart data={initialBusiness.revenueSeries} height={220} accent="var(--ink-1)"/>
         </div>
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Customer growth</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{business.customerGrowth[business.customerGrowth.length-1].v.toLocaleString('en-IN')}</div>
-          <LineChart data={business.customerGrowth} height={220} accent="#1e40af"/>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{(initialBusiness.customerGrowth || []).length > 0 ? (initialBusiness.customerGrowth[initialBusiness.customerGrowth.length-1].v.toLocaleString('en-IN')) : '0'}</div>
+          <LineChart data={initialBusiness.customerGrowth || []} height={220} accent="#1e40af"/>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Orders by day</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{business.ordersSeries.reduce((s, d) => s + d.v, 0).toLocaleString('en-IN')} <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>this week</span></div>
-          <BarChart data={business.ordersSeries} height={220} accent="var(--ink-1)"/>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>{(initialBusiness.ordersSeries || []).reduce((s, d) => s + d.v, 0).toLocaleString('en-IN')} <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>this week</span></div>
+          <BarChart data={initialBusiness.ordersSeries || []} height={220} accent="var(--ink-1)"/>
         </div>
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12 }}>Top movers</div>
@@ -59,7 +78,7 @@ export const Analytics = ({ business }) => {
               </tr>
             </thead>
             <tbody>
-              {(business.topMovers || []).map(([name, u, d], i, arr) => (
+              {(initialBusiness.topMovers || []).map(([name, u, d], i, arr) => (
                 <tr key={i}>
                   <td style={{ padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>{name}</td>
                   <td style={{ textAlign: 'right', padding: '10px 0', fontFamily: 'var(--font-mono)', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>{u}</td>
@@ -85,7 +104,7 @@ export const DataSources = ({ business }) => {
 
     AtlasAPI.uploads.list(business.id)
       .then((jobs) => {
-        if (!cancelled) setUploadJobs(jobs);
+        if (!cancelled && jobs) setUploadJobs(jobs);
       })
       .catch(() => {});
 
@@ -111,7 +130,6 @@ export const DataSources = ({ business }) => {
     { name: 'Google Business', kind: 'integration', status: 'connected', last: 'Synced 1 hour ago', icon: 'globe' },
     { name: 'Instagram', kind: 'integration', status: 'connected', last: 'Synced 12 min ago', icon: 'image', mock: true },
     { name: 'Inventory system', kind: 'integration', status: 'available', last: 'Connect to enable', icon: 'package', mock: true },
-    { name: 'Shopify', kind: 'integration', status: 'available', last: 'Connect to enable', icon: 'database', mock: true },
   ];
 
   const simulateUpload = (message = 'Extracting structure…') => {
@@ -205,11 +223,6 @@ export const DataSources = ({ business }) => {
             <Icon name="upload" size={20} color={dragOver ? 'var(--ink-1)' : 'var(--ink-3)'}/>
             <div style={{ fontSize: 14, fontWeight: 500, marginTop: 12, marginBottom: 4 }}>{dragOver ? 'Release to upload' : 'Drop files to upload'}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>PDFs, CSVs, screenshots — Atlas extracts structured data automatically.</div>
-            <div style={{ marginTop: 12, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-              {['PDF', 'CSV', 'PNG / JPG', 'XLSX'].map(t => (
-                <span key={t} className="badge" style={{ fontSize: 10 }}>{t}</span>
-              ))}
-            </div>
           </>
         )}
       </div>
@@ -232,7 +245,6 @@ export const DataSources = ({ business }) => {
               <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{s.last}</div>
             </div>
             {s.status === 'connected' && <span className="badge badge-positive"><span className="dot dot-positive"/> Connected</span>}
-            {s.status === 'parsed' && <span className="badge badge-info"><Icon name="check" size={10} strokeWidth={2.5}/> Parsed</span>}
             {s.status === 'available' ? (
               <button className="btn btn-sm">Connect</button>
             ) : (
@@ -246,77 +258,28 @@ export const DataSources = ({ business }) => {
 };
 
 export const Automations = ({ business }) => {
-  const [autos, setAutos] = React.useState(business.automations);
+  const [autos, setAutos] = React.useState(business.automations || []);
   const toggle = (id) => setAutos(autos.map(a => a.id === id ? { ...a, status: a.status === 'active' ? 'paused' : 'active' } : a));
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader
-        eyebrow="Run on autopilot"
-        title="Automations"
-        subtitle="Rules that run when conditions are met. Atlas drafts the action; you keep control."
-        action={<button className="btn btn-primary btn-sm"><Icon name="plus" size={13}/> New automation</button>}
-      />
-
-      {/* Active */}
-      <div style={{ marginBottom: 28 }}>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>Your automations · {autos.filter(a => a.status === 'active').length} active</div>
-        <div className="card" style={{ padding: 0 }}>
-          {autos.map((a, i) => (
-            <div key={a.id} style={{ padding: '16px 18px', borderBottom: i === autos.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                    <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>WHEN</span>
-                    <span style={{ fontWeight: 500 }}>{a.trigger}</span>
-                  </div>
-                  <Icon name="arrow-right" size={12} color="var(--ink-4)"/>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                    <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>DO</span>
-                    <span style={{ fontWeight: 500 }}>{a.action}</span>
-                  </div>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>Last triggered: {a.last}</div>
-              </div>
-              <button onClick={() => toggle(a.id)} style={{
-                width: 36, height: 20, borderRadius: 999,
-                background: a.status === 'active' ? 'var(--ink-1)' : 'var(--border-strong)',
-                border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 140ms',
-              }}>
-                <span style={{ position: 'absolute', top: 2, left: a.status === 'active' ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 140ms', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}/>
-              </button>
-              <button className="btn btn-ghost btn-sm"><Icon name="more" size={14}/></button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Suggested */}
-      <div>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>Suggested by Atlas · based on your data</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {business.suggestedAutomations.map((s, i) => (
-            <div key={i} className="card" style={{ padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Icon name="sparkles" size={13}/>
-                <span className="eyebrow">SUGGESTION</span>
-              </div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>
+      <SectionHeader eyebrow="Run on autopilot" title="Automations" subtitle="Rules that run when conditions are met."/>
+      <div className="card" style={{ padding: 0 }}>
+        {autos.map((a, i) => (
+          <div key={a.id} style={{ padding: '16px 18px', borderBottom: i === autos.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                 <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>WHEN</span>
-                <span style={{ fontWeight: 500, marginLeft: 8 }}>{s.trigger}</span>
-              </div>
-              <div style={{ fontSize: 13, marginBottom: 14 }}>
+                <span style={{ fontWeight: 500 }}>{a.trigger}</span>
+                <Icon name="arrow-right" size={12}/>
                 <span className="eyebrow" style={{ color: 'var(--ink-4)' }}>DO</span>
-                <span style={{ fontWeight: 500, marginLeft: 8 }}>{s.action}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>Enable</button>
-                <button className="btn btn-sm">Customize</button>
-                <button className="btn btn-ghost btn-sm"><Icon name="x" size={13}/></button>
+                <span style={{ fontWeight: 500 }}>{a.action}</span>
               </div>
             </div>
-          ))}
-        </div>
+            <button onClick={() => toggle(a.id)} className="btn btn-ghost btn-sm">{a.status}</button>
+          </div>
+        ))}
+        {autos.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-4)' }}>No automations yet.</div>}
       </div>
     </div>
   );
@@ -325,44 +288,18 @@ export const Automations = ({ business }) => {
 export const Reports = ({ business }) => {
   const reports = [
     { name: 'Weekly performance brief', desc: 'Last 7 days · executive summary + 3 actions', date: 'May 1, 2026', size: '4 pages' },
-    { name: 'Monthly financial review', desc: 'April 2026 · revenue, COGS, margin, runway', date: 'Apr 30, 2026', size: '12 pages' },
-    { name: 'Customer cohort analysis', desc: 'Q1 2026 · retention, LTV, channel mix', date: 'Apr 8, 2026', size: '8 pages' },
-    { name: 'Inventory audit', desc: 'Stock levels, aging, reorder forecast', date: 'Apr 1, 2026', size: '6 pages' },
   ];
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader
-        eyebrow="Documents"
-        title="Reports"
-        subtitle="Exportable summaries. Generate on demand or on a schedule."
-        action={<button className="btn btn-primary btn-sm"><Icon name="plus" size={13}/> Generate report</button>}
-      />
-
-      <div className="card" style={{ padding: 18, marginBottom: 16, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Icon name="sparkles" size={18}/>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>This week's brief is ready</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>3 risks identified · 4 actions recommended · est. 6 min read</div>
-          </div>
-          <button className="btn btn-sm"><Icon name="download" size={13}/> Download PDF</button>
-          <button className="btn btn-primary btn-sm">View brief</button>
-        </div>
-      </div>
-
+      <SectionHeader title="Reports" subtitle="Exportable summaries."/>
       <div className="card" style={{ padding: 0 }}>
         {reports.map((r, i) => (
-          <div key={i} style={{ padding: '16px 18px', borderBottom: i === reports.length - 1 ? 'none' : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <span style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="file" size={15} color="var(--ink-2)"/>
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{r.desc}</div>
-            </div>
-            <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{r.date}</span>
-            <span className="badge">{r.size}</span>
-            <button className="btn btn-sm"><Icon name="download" size={13}/></button>
+          <div key={i} style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 14 }}>
+             <div style={{ flex: 1 }}>
+               <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</div>
+               <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{r.desc}</div>
+             </div>
+             <button className="btn btn-sm"><Icon name="download" size={13}/></button>
           </div>
         ))}
       </div>
@@ -371,61 +308,19 @@ export const Reports = ({ business }) => {
 };
 
 export const Settings = ({ business }) => {
-  const goals = [
-    { id: 'rev', label: 'Increase revenue', on: true },
-    { id: 'csat', label: 'Improve customer satisfaction', on: false },
-    { id: 'inv', label: 'Optimize inventory', on: true },
-    { id: 'delays', label: 'Reduce delays', on: false },
-    { id: 'repeat', label: 'Increase repeat customers', on: true },
-  ];
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 760, margin: '0 auto' }}>
       <SectionHeader eyebrow="Workspace" title="Settings" subtitle="Workspace, goals, and data preferences."/>
-
-      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+      <div className="card" style={{ padding: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Business info</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Name</label>
-            <input className="input" defaultValue={business.name}/>
+            <label className="eyebrow">Name</label>
+            <input className="input" defaultValue={business.name} disabled/>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Type</label>
-            <input className="input" defaultValue={business.type}/>
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Location</label>
-            <input className="input" defaultValue={business.location}/>
-          </div>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Optimization goals</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 16 }}>Active goals shape Atlas's recommendations.</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {goals.map(g => (
-            <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 13 }}>{g.label}</span>
-              <button style={{ width: 36, height: 20, borderRadius: 999, background: g.on ? 'var(--ink-1)' : 'var(--border-strong)', border: 'none', cursor: 'pointer', position: 'relative' }}>
-                <span style={{ position: 'absolute', top: 2, left: g.on ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white' }}/>
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 24 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Data preferences</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 16 }}>How Atlas processes and retains your data.</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><div style={{ fontWeight: 500 }}>Anonymize for model training</div><div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Use aggregated patterns, no raw data.</div></div>
-            <button style={{ width: 36, height: 20, borderRadius: 999, background: 'var(--ink-1)', border: 'none', position: 'relative' }}><span style={{ position: 'absolute', top: 2, left: 18, width: 16, height: 16, borderRadius: '50%', background: 'white' }}/></button>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><div style={{ fontWeight: 500 }}>Retain raw uploads</div><div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Keep original files for 90 days for audit.</div></div>
-            <button style={{ width: 36, height: 20, borderRadius: 999, background: 'var(--border-strong)', border: 'none', position: 'relative' }}><span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', background: 'white' }}/></button>
+            <label className="eyebrow">Type</label>
+            <input className="input" defaultValue={business.type} disabled/>
           </div>
         </div>
       </div>

@@ -160,22 +160,69 @@ const updateBusiness = asyncHandler(async (req, res) => {
 const detectBusiness = asyncHandler(async (req, res) => {
   const name = String(req.body.name || '').trim();
   const address = String(req.body.address || '').trim();
-  const text = `${name} ${address}`.toLowerCase();
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_VISION_API_KEY;
 
-  let category = 'Service Business';
-  if (/baker|bakery|cake|bread/.test(text)) category = 'Home Baker';
-  if (/cafe|coffee|tea/.test(text)) category = 'Cafe';
-  if (/pharmacy|chemist|medical/.test(text)) category = 'Pharmacy';
-  if (/retail|store|shop|mart/.test(text)) category = 'Retail Shop';
-  if (/import|export|logistics|freight/.test(text)) category = 'Import/Export';
-
-  res.json({
+  let details = {
     name,
     address,
-    category,
-    type: category,
-    location: address,
-    confidence: name ? 0.72 : 0.4,
+    category: 'Service Business',
+    placeId: '',
+    rating: 0,
+    reviews: 0,
+    confidence: name ? 0.4 : 0.1,
+    isFallback: true
+  };
+
+  if (apiKey && name) {
+    try {
+      const query = encodeURIComponent(`${name} ${address}`);
+      const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=name,formatted_address,types,rating,user_ratings_total,place_id&key=${apiKey}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.candidates && data.candidates.length > 0) {
+        const place = data.candidates[0];
+        const types = place.types || [];
+        
+        let category = 'Service Business';
+        if (types.includes('bakery')) category = 'Home Baker';
+        else if (types.includes('cafe') || types.includes('coffee_shop')) category = 'Cafe';
+        else if (types.includes('pharmacy') || types.includes('drugstore')) category = 'Pharmacy';
+        else if (types.includes('store') || types.includes('clothing_store') || types.includes('shopping_mall')) category = 'Retail Shop';
+        else if (types.includes('logistics') || types.includes('moving_company')) category = 'Import/Export';
+
+        details = {
+          name: place.name || name,
+          address: place.formatted_address || address,
+          category,
+          placeId: place.place_id,
+          rating: place.rating || 0,
+          reviews: place.user_ratings_total || 0,
+          confidence: 0.95,
+          isFallback: false
+        };
+      }
+    } catch (error) {
+      console.error('Google Places API Error:', error);
+    }
+  }
+
+  // Fallback regex if API failed or no key
+  if (details.isFallback) {
+    const text = `${name} ${address}`.toLowerCase();
+    if (/baker|bakery|cake|bread/.test(text)) details.category = 'Home Baker';
+    if (/cafe|coffee|tea/.test(text)) details.category = 'Cafe';
+    if (/pharmacy|chemist|medical/.test(text)) details.category = 'Pharmacy';
+    if (/retail|store|shop|mart/.test(text)) details.category = 'Retail Shop';
+    if (/import|export|logistics|freight/.test(text)) details.category = 'Import/Export';
+    details.confidence = name ? 0.72 : 0.4;
+  }
+
+  res.json({
+    ...details,
+    type: details.category,
+    location: details.address,
   });
 });
 

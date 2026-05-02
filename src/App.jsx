@@ -6,6 +6,7 @@ import { Overview } from './overview';
 import { Analytics, DataSources, Automations, Reports, Settings } from './pages';
 import { PricingPage } from './pricing';
 import { DocsPage } from './docs';
+import { ChatPanel } from './chat';
 import {
   useTweaks, TweaksPanel, TweakSection,
   TweakRadio, TweakToggle, TweakSelect,
@@ -24,6 +25,7 @@ export default function App() {
   const [bizId, setBizId] = useState('baker');
   const [page, setPage] = useState('overview');
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [apiBusinesses, setApiBusinesses] = useState([]);
   const [currentBusiness, setCurrentBusiness] = useState(null);
@@ -141,7 +143,7 @@ export default function App() {
               }
             }}
           />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
             <TopBar
               title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings' })[page]}
               business={business}
@@ -150,6 +152,19 @@ export default function App() {
             <div style={{ flex: 1 }}>
               <PageComponent business={business} key={bizId + page}/>
             </div>
+            
+            {/* Chat Trigger FAB */}
+            {!showChat && (
+              <button 
+                className="btn btn-primary fade-in" 
+                style={{ position: 'fixed', right: 24, bottom: 24, width: 56, height: 56, borderRadius: 28, boxShadow: 'var(--shadow-lg)', justifyContent: 'center', zIndex: 1900 }}
+                onClick={() => setShowChat(true)}
+              >
+                <Icon name="message" size={24}/>
+              </button>
+            )}
+            
+            {showChat && <ChatPanel business={business} onClose={() => setShowChat(false)}/>}
           </div>
           {showSwitcher && <BusinessSwitcher current={business} allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name })), ...ATLAS_BUSINESS_LIST]} allBusinesses={allBusinesses} onSelect={setBizId} onClose={() => setShowSwitcher(false)}/>}
         </div>

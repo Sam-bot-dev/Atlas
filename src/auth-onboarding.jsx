@@ -78,8 +78,12 @@ export const Onboarding = ({ onComplete, onBack }) => {
     { name: 'Q1-sales-export.csv', kind: 'csv', size: '184 KB' },
   ]);
   const [integrations, setIntegrations] = React.useState({ gbiz: true, square: false, ig: false, shop: false });
+  
+  // New account state
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
 
-  const steps = ['Business', 'Detection', 'Data', 'Goals'];
+  const steps = ['Business', 'Detection', 'Data', 'Goals', 'Account'];
   const goalOptions = [
     { id: 'rev', label: 'Increase revenue' },
     { id: 'csat', label: 'Improve customer satisfaction' },
@@ -90,27 +94,29 @@ export const Onboarding = ({ onComplete, onBack }) => {
 
   const next = async () => {
     if (step === 0 && !detectDone) {
-      // Trigger AI detection simulation when moving from step 0 → 1
       setStep(1);
       setDetecting(true);
-      AtlasAPI.businesses.detect(bizName, bizAddr).then(() => {
+      AtlasAPI.businesses.detect(bizName, bizAddr).then((data) => {
         setDetecting(false);
         setDetectDone(true);
+        if (data && data.category) setBizType(data.category);
       }).catch(e => {
-        // Fallback to static progression on error so the user isn't stuck
         setDetecting(false); 
         setDetectDone(true);
       });
       return;
     }
     
-    if (step < 3) {
+    if (step < 4) {
       setStep(step + 1);
     } else {
+      if (!email || !password) {
+        alert('Please enter your email and password');
+        return;
+      }
       setDetecting(true);
       try {
-        const email = bizName.replace(/\s+/g, '').toLowerCase() + '@example.com';
-        const user = await AtlasAPI.auth.signup({ email, password: 'password123', name: bizName });
+        const user = await AtlasAPI.auth.signup({ email, password, name: bizName });
         await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr });
         onComplete(user);
       } catch (e) {
@@ -128,7 +134,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '20px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)' }}>
         <div onClick={onBack} style={{ cursor: 'pointer' }}><AtlasLogo/></div>
-        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>STEP {step + 1} / 4</div>
+        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>STEP {step + 1} / 5</div>
       </div>
 
       {/* Stepper */}
@@ -180,14 +186,6 @@ export const Onboarding = ({ onComplete, onBack }) => {
               <div style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--ink-1)', margin: '0 auto 24px', animation: 'spin 600ms linear infinite' }}/>
               <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.015em', marginBottom: 8 }}>Detecting your business…</div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5 }}>Searching Google Business, local listings, and category signals.</div>
-              <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {['Business type', 'Location context', 'Revenue range', 'Operating patterns'].map((label, i) => (
-                  <span key={i} className="badge processing-pulse" style={{ animationDelay: `${i * 200}ms` }}>
-                    <span className="dot dot-info"/>
-                    {label}
-                  </span>
-                ))}
-              </div>
             </div>
           )}
           {step === 1 && !detecting && (
@@ -197,22 +195,21 @@ export const Onboarding = ({ onComplete, onBack }) => {
               <div className="card fade-in" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: '#a16207', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>FH</div>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: '#a16207', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>{bizName.substring(0,2).toUpperCase()}</div>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 600 }}>{bizName}</div>
                       <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{bizAddr}</div>
                     </div>
                   </div>
-                  <span className="badge badge-positive"><Icon name="check" size={10} strokeWidth={2.5}/> 94% confidence</span>
+                  <span className="badge badge-positive"><Icon name="check" size={10} strokeWidth={2.5}/> Smart detected</span>
                 </div>
                 <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Type</span><span style={{ fontWeight: 500 }}>{bizType}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--ink-3)' }}>Type</span>
+                    <input style={{ background: 'transparent', border: 'none', textAlign: 'right', fontWeight: 500, color: 'inherit' }} value={bizType} onChange={e => setBizType(e.target.value)}/>
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Channel</span><span>WhatsApp orders + local delivery</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Est. monthly revenue</span><span className="mono">₹80K–1.5L</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Years operating</span><span>3</span></div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-                  <button className="btn btn-sm">Edit details</button>
                 </div>
               </div>
             </>
@@ -221,37 +218,17 @@ export const Onboarding = ({ onComplete, onBack }) => {
             <>
               <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 8 }}>Add your data</div>
               <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32 }}>Upload files or connect a system. The more Atlas sees, the sharper its recommendations.</div>
-
               <div className="card" style={{ padding: 24, borderStyle: 'dashed', textAlign: 'center', cursor: 'pointer', marginBottom: 24, borderColor: 'var(--border-strong)' }}
                 onClick={() => setUploads([...uploads, { name: 'reviews-export.pdf', kind: 'pdf', size: '512 KB' }])}>
-                <Icon name="upload" size={20} className="" />
+                <Icon name="upload" size={20} />
                 <div style={{ fontSize: 14, fontWeight: 500, marginTop: 12, marginBottom: 4 }}>Drop files here or click to upload</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>PDF · CSV · PNG/JPG · XLSX · up to 50MB</div>
               </div>
-
-              {uploads.length > 0 && (
-                <div style={{ marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {uploads.map((u, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)' }}>
-                      <Icon name="file" size={16} color="var(--ink-3)"/>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{u.kind.toUpperCase()} · {u.size}</div>
-                      </div>
-                      <span className="badge badge-positive"><span className="dot dot-positive"/> Parsed</span>
-                      <button className="btn btn-ghost" style={{ padding: 4 }} onClick={() => setUploads(uploads.filter((_, j) => j !== i))}><Icon name="x" size={14}/></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <div className="eyebrow" style={{ marginBottom: 12 }}>Connect a system</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                 {[
                   { id: 'gbiz', name: 'Google Business', sub: 'Reviews, traffic', mock: false },
                   { id: 'square', name: 'Square POS', sub: 'Sales, products', mock: true },
-                  { id: 'ig', name: 'Instagram', sub: 'Engagement, DMs', mock: true },
-                  { id: 'shop', name: 'Shopify', sub: 'Orders, inventory', mock: true },
                 ].map(intg => (
                   <button key={intg.id} className="card" style={{
                     padding: 14, textAlign: 'left', cursor: 'pointer',
@@ -259,11 +236,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
                     background: integrations[intg.id] ? 'var(--bg-subtle)' : 'var(--bg-elevated)',
                   }} onClick={() => setIntegrations({ ...integrations, [intg.id]: !integrations[intg.id] })}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{intg.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{intg.sub}</div>
-                      </div>
-                      {intg.mock && <span className="badge" style={{ fontSize: 10 }}>mock</span>}
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{intg.name}</div>
                       {integrations[intg.id] && <Icon name="check" size={14} color="var(--ink-1)"/>}
                     </div>
                   </button>
@@ -295,6 +268,22 @@ export const Onboarding = ({ onComplete, onBack }) => {
               </div>
             </>
           )}
+          {step === 4 && (
+            <>
+              <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 8 }}>Create your account</div>
+              <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32 }}>Last step. Access your Atlas workspace from any device.</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Email address</label>
+                  <input className="input" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Password</label>
+                  <input className="input" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}/>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -303,7 +292,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
         <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', justifyContent: 'space-between' }}>
           <button className="btn" onClick={prev}>{step === 0 ? 'Cancel' : 'Back'}</button>
           <button className="btn btn-primary" onClick={next} disabled={detecting} style={{ opacity: detecting ? 0.5 : 1, cursor: detecting ? 'not-allowed' : 'pointer' }}>
-            {detecting ? 'Detecting…' : step === 3 ? 'Finish setup' : 'Continue'}
+            {detecting ? 'Working…' : step === 4 ? 'Finish setup' : 'Continue'}
             {!detecting && <Icon name="arrow-right" size={14}/>}
           </button>
         </div>

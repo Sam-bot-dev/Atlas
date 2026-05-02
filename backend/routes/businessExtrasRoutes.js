@@ -96,16 +96,19 @@ router.post('/sources/:sourceId/sync', protect, asyncHandler(async (req, res) =>
   res.json({ ...updated, meta: parseJson(updated.meta, {}) });
 }));
 
+const { askAtlas } = require('../services/insightService');
+
 router.post('/ask', protect, asyncHandler(async (req, res) => {
   const business = await ensureBusiness(req);
   const question = String(req.body.query || '').trim();
-  const insight = business.insights[0];
-  const revenue = business.metrics.find((m) => m.key === 'revenue');
-  const answer = insight
-    ? `${insight.title}: ${insight.body}`
-    : `${business.name} has ${revenue ? revenue.label : 'limited'} recent signal. Upload sales, traffic, or review data for sharper reasoning.`;
+  
+  if (!question) {
+    res.status(400);
+    throw new Error('Question is required');
+  }
 
-  res.json({ query: question, answer });
+  const result = await askAtlas(business.id, question);
+  res.json({ query: question, ...result });
 }));
 
 router.get('/reports', protect, asyncHandler(async (req, res) => {

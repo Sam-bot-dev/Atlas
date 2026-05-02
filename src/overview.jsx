@@ -6,9 +6,18 @@ import { AtlasAPI } from './api';
 // Atlas — Overview page (the signature moment)
 // What is happening / Why it is happening / What to do next
 
-const MetricTile = ({ m, accent }) => {
+const MetricTile = ({ m, accent, loading }) => {
   const isCurrency = m.unit === '₹';
   const value = isCurrency ? fmtINR(m.value) : m.unit ? `${m.value}${m.unit}` : m.value.toLocaleString('en-IN');
+  
+  if (loading) return (
+    <div className="card loading-shimmer" style={{ padding: 16, minHeight: 110 }}>
+      <div style={{ height: 12, width: '60%', background: 'var(--bg-subtle)', borderRadius: 2, marginBottom: 12 }}/>
+      <div style={{ height: 24, width: '80%', background: 'var(--bg-subtle)', borderRadius: 2, marginBottom: 12 }}/>
+      <div style={{ height: 12, width: '40%', background: 'var(--bg-subtle)', borderRadius: 2, marginTop: 'auto' }}/>
+    </div>
+  );
+
   return (
     <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 110 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -26,7 +35,7 @@ const MetricTile = ({ m, accent }) => {
   );
 };
 
-const InsightCard = ({ insight }) => {
+const InsightCard = ({ insight, onExplain }) => {
   const s = severityStyle(insight.severity);
   return (
     <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -44,7 +53,7 @@ const InsightCard = ({ insight }) => {
             <span key={i} className="badge" style={{ fontSize: 10 }}>{e}</span>
           ))}
         </div>
-        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-3)' }}>
+        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-3)' }} onClick={() => onExplain(insight)}>
           Explain <Icon name="arrow-right" size={11}/>
         </button>
       </div>
@@ -114,13 +123,53 @@ const ActionCard = ({ action, onApply, applied }) => {
   );
 };
 
-export const Overview = ({ business }) => {
+export const Overview = ({ business: initialBusiness }) => {
+  const [business, setBusiness] = React.useState(initialBusiness);
+  const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});
+  const [insights, setInsights] = React.useState(initialBusiness.insights || []);
+  const [actions, setActions] = React.useState(initialBusiness.actions || []);
+  const [peakHours, setPeakHours] = React.useState(initialBusiness.peakHours || []);
+  
+  const [loading, setLoading] = React.useState(false);
+  const [explanation, setExplanation] = React.useState(null);
   const [appliedActions, setAppliedActions] = React.useState({});
   const [period, setPeriod] = React.useState('1M');
+
+  // Fetch real data from API
+  React.useEffect(() => {
+    let active = true;
+    const fetchData = async () => {
+      if (!initialBusiness.id || initialBusiness.id.startsWith('demo-')) return;
+      
+      setLoading(true);
+      try {
+        const [mRes, iRes, aRes, pRes] = await Promise.all([
+          AtlasAPI.metrics.summary(initialBusiness.id, period),
+          AtlasAPI.insights.list(initialBusiness.id),
+          AtlasAPI.actions.list(initialBusiness.id),
+          AtlasAPI.metrics.peakHours(initialBusiness.id)
+        ]);
+        
+        if (active) {
+          if (mRes && Object.keys(mRes).length > 0) setMetrics(mRes);
+          if (iRes && iRes.length > 0) setInsights(iRes);
+          if (aRes && aRes.length > 0) setActions(aRes);
+          if (pRes && pRes.length > 0) setPeakHours(pRes);
+        }
+      } catch (e) {
+        console.error('Failed to fetch business data', e);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { active = false; };
+  }, [initialBusiness.id, period]);
   
   const apply = async (actionId, index) => {
     try {
-      await AtlasAPI.actions.apply(business.id, actionId);
+      await AtlasAPI.actions.apply(initialBusiness.id, actionId);
       setAppliedActions({ ...appliedActions, [index]: true });
     } catch (e) {
       console.error('Failed to apply action', e);
@@ -129,18 +178,50 @@ export const Overview = ({ business }) => {
     }
   };
 
+  const handleExplain = async (insight) => {
+    try {
+      const res = await AtlasAPI.insights.explain(initialBusiness.id, insight.id);
+      setExplanation(res);
+    } catch (e) {
+      setExplanation({
+        title: insight.title,
+        answer: insight.body,
+        evidence: insight.evidence || []
+      });
+    }
+  };
+
   const metricKeys = ['revenue', 'orders', 'conversion', 'inventory', 'retention', 'sentiment'];
   const fallbackMetric = { value: 0, delta: 0, label: 'No data', unit: '', period: '' };
-  const metrics = metricKeys.reduce((acc, key) => ({ ...acc, [key]: business.metrics?.[key] || fallbackMetric }), {});
-  const spendingMix = business.spendingMix || [];
-  const insights = business.insights || [];
-  const actions = business.actions || [];
-
+  
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
+    <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto', position: 'relative' }}>
+      {/* Explanation Modal */}
+      {explanation && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setExplanation(null)}>
+          <div className="card fade-in" style={{ maxWidth: 500, width: '100%', padding: 32, background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)' }} onClick={e => e.stopPropagation()}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <div className="eyebrow" style={{ color: 'var(--ink-3)' }}>Atlas Reasoning</div>
+                <button className="btn btn-ghost" style={{ padding: 4 }} onClick={() => setExplanation(null)}><Icon name="x" size={16}/></button>
+             </div>
+             <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, letterSpacing: '-0.02em' }}>{explanation.title || 'Insight Explanation'}</h2>
+             <div style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.6, marginBottom: 24 }}>
+                {explanation.answer}
+             </div>
+             <div className="eyebrow" style={{ marginBottom: 12 }}>Supporting Evidence</div>
+             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {(explanation.evidence || []).map((e, i) => (
+                  <span key={i} className="badge badge-lg" style={{ background: 'var(--bg-subtle)' }}>{e}</span>
+                ))}
+             </div>
+             <button className="btn btn-primary" style={{ width: '100%', marginTop: 32, justifyContent: 'center' }} onClick={() => setExplanation(null)}>Got it</button>
+          </div>
+        </div>
+      )}
+
       {/* Header strip */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
         <div>
@@ -178,7 +259,7 @@ export const Overview = ({ business }) => {
           <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>· Six leading indicators across your business</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-          {metricKeys.map(k => <MetricTile key={k} m={metrics[k]}/>)}
+          {metricKeys.map(k => <MetricTile key={k} m={metrics[k] || fallbackMetric} loading={loading}/>)}
         </div>
 
         {/* Revenue chart + spending mix */}
@@ -188,8 +269,8 @@ export const Overview = ({ business }) => {
               <div>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Revenue trend</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{fmtINR(metrics.revenue.value)}</span>
-                  <Delta value={metrics.revenue.delta}/>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{fmtINR(metrics.revenue?.value || 0)}</span>
+                  <Delta value={metrics.revenue?.delta || 0}/>
                   <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>vs prev period</span>
                 </div>
               </div>
@@ -199,10 +280,10 @@ export const Overview = ({ business }) => {
           <div className="card" style={{ padding: 18 }}>
             <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Spending mix</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500 }}>{fmtINR(spendingMix.reduce((s, d) => s + d.value, 0))}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500 }}>{fmtINR((business.spendingMix || []).reduce((s, d) => s + d.value, 0))}</span>
               <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>this period</span>
             </div>
-            <DonutChart data={spendingMix} size={140} thickness={18}/>
+            <DonutChart data={business.spendingMix || []} size={140} thickness={18}/>
           </div>
         </div>
 
@@ -226,7 +307,7 @@ export const Overview = ({ business }) => {
               </span>
             </div>
           </div>
-          <HeatmapChart data={business.peakHours} accent={business.color} accentHex={business.color}/>
+          <HeatmapChart data={peakHours} accent={business.color} accentHex={business.color}/>
         </div>
       </div>
 
@@ -235,10 +316,15 @@ export const Overview = ({ business }) => {
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>02</span>
           <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Why it is happening</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>· Atlas connected the dots across {Object.keys(business.metrics).length} signals</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>· Atlas connected the dots across {Object.keys(metrics).length} signals</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {insights.map((ins, i) => <InsightCard key={i} insight={ins}/>)}
+          {insights.map((ins, i) => <InsightCard key={i} insight={ins} onExplain={handleExplain}/>)}
+          {insights.length === 0 && !loading && (
+             <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
+                No insights generated yet. Connect a data source to begin analysis.
+             </div>
+          )}
         </div>
       </div>
 
@@ -251,6 +337,11 @@ export const Overview = ({ business }) => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           {actions.map((a, i) => <ActionCard key={i} action={a} onApply={() => apply(a.id, i)} applied={appliedActions[i]}/>)}
+          {actions.length === 0 && !loading && (
+             <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
+                No recommended actions yet.
+             </div>
+          )}
         </div>
       </div>
     </div>

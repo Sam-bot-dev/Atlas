@@ -337,9 +337,84 @@ function getDayName(dayOfWeek) {
   return days[dayOfWeek];
 }
 
+/**
+ * Answer a user query about their business using LLM
+ */
+async function askAtlas(businessId, query) {
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: { metrics: true, insights: true }
+    });
+
+    if (!business) throw new Error('Business not found');
+
+    const metricsMap = business.metrics.reduce((acc, m) => ({ ...acc, [m.key]: m }), {});
+    const context = await gatherBusinessContext(businessId, business, metricsMap);
+
+    if (!GROQ_API_KEY) {
+      return { 
+        answer: "I'm currently in offline mode. Based on your metrics, I can see you have " + 
+        (metricsMap.revenue ? `₹${metricsMap.revenue.value} revenue` : "some activity") + 
+        ". Connect my brain (GROQ_API_KEY) for full AI reasoning!",
+        isFallback: true 
+      };
+    }
+
+    const systemPrompt = `You are Atlas, a genius AI Business Partner for Indian SMBs. 
+    You have full access to the business's data, metrics, and context.
+    Your tone is professional, encouraging, and highly data-driven.
+    Answer the user's question specifically using their metrics. 
+    If they ask about weather or competition, use the provided context.
+    Keep answers concise but high-value (max 4 sentences).`;
+
+    const userPrompt = `
+Business: ${context.business.name} (${context.business.type})
+Location: ${context.business.location}
+Current Metrics: Revenue ${context.metrics.revenue?.value || 0}, Orders ${context.metrics.orders?.value || 0}
+Recent Insights: ${business.insights.slice(0, 2).map(i => i.title).join(', ')}
+
+User Question: "${query}"
+
+Provide a data-backed answer as Atlas.`;
+
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.6,
+        max_tokens: 512,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Groq API error: ${response.statusText}`);
+
+    const data = await response.json();
+    return { 
+      answer: data.choices[0].message.content,
+      isFallback: false 
+    };
+  } catch (error) {
+    console.error('Atlas Ask Error:', error);
+    return { 
+      answer: "I'm having trouble connecting to my reasoning engine. Please try again in a moment.",
+      isFallback: true 
+    };
+  }
+}
+
 module.exports = {
   generateInsights,
   gatherBusinessContext,
   generateInsightsViaLLM,
   generateFallbackInsights,
+  askAtlas,
 };
