@@ -8,8 +8,8 @@ const defaultDatabaseUrl = `file:${path.join(__dirname, '..', 'dev.db')}`;
 const globalForPrisma = globalThis;
 
 if (!globalForPrisma.prisma) {
-  // Prisma 7 requires an adapter for direct SQLite connection in many environments
-  // We use the better-sqlite3 adapter for performance and stability
+  console.log('Initializing Prisma Client with better-sqlite3 adapter...');
+  
   const adapter = new PrismaBetterSqlite3({
     url: process.env.DATABASE_URL || defaultDatabaseUrl,
   });
@@ -18,6 +18,11 @@ if (!globalForPrisma.prisma) {
     adapter,
     log: ['error', 'warn'],
   });
+
+  // Verify connection immediately
+  globalForPrisma.prisma.$connect()
+    .then(() => console.log('Database connected successfully.'))
+    .catch((err) => console.error('Database connection failed:', err.message));
 }
 
 const prisma = globalForPrisma.prisma;

@@ -11,6 +11,12 @@ dotenv.config();
 const port = process.env.PORT || 5000;
 const app = express();
 
+// Startup validation
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.warn('WARNING: JWT_SECRET is not configured or is too short (min 32 chars). Auth will fail.');
+}
+
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // limit each IP to 20 requests per windowMs
