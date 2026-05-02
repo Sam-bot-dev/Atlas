@@ -1,0 +1,289 @@
+🧠 PRODUCT SPEC (FINAL)
+🔷 Product Name "Atlas"
+AI Business Decision Assistant
+
+🔷 Core Purpose
+
+A web app that converts fragmented business data (documents, screenshots, systems) into:
+
+What is happening
+Why it is happening
+What to do next
+🎯 POSITIONING
+
+“We unify scattered business data into a single AI decision engine that provides insights, reasoning, and actionable recommendations for business owners.”
+
+🧭 COMPLETE USER FLOW
+🟢 1. Landing Page
+Sections:
+Hero (clear value prop)
+“Try Demo” (primary CTA)
+“Login / Signup”
+🔥 Demo Businesses (NO LOGIN REQUIRED)
+
+Display 6 demo businesses:
+
+Home Baker
+Retail Shop
+Pharmacy
+Import/Export
+Service Business
+Cafe
+
+👉 Clicking any = instant access to dashboard with preloaded data
+
+🟡 2. Authentication Logic
+If user clicks Demo:
+
+→ Direct dashboard (no auth)
+
+If user clicks Signup:
+
+→ Start onboarding
+
+If user logs in:
+
+→ Go to their dashboard (saved data)
+
+🧭 3. ONBOARDING FLOW (REAL-WORLD SIMULATION)
+Step 1: Business Details
+Business Name
+Address
+Step 2: 🔥 AI Business Detection (Innovation)
+Use Google Places API (or mock)
+Fetch:
+Business category
+Location
+Ratings
+Basic info
+
+Show:
+
+“We found this business. Confirm?”
+
+Step 3: Data Connection Hub
+REAL DATA INPUT METHODS (CORE)
+Upload PDFs (invoices, bills)
+Upload screenshots (Instagram insights)
+Upload CSV (customers, products, orders)
+OPTIONAL CONNECTIONS
+Google Business (real/mock)
+Inventory system (your Inventra)
+Social platforms (mock)
+
+👉 Label unavailable integrations as (mock)
+
+Step 4: Goal Selection (Multi-select)
+
+User selects:
+
+Increase revenue
+Improve customer satisfaction
+Optimize inventory
+Reduce delays
+Increase repeat customers
+
+👉 These influence AI prioritization
+
+🔴 4. DATA PROCESSING PIPELINE (CORE AI)
+INPUT TYPES:
+Images (screenshots)
+PDFs
+CSV files
+PIPELINE:
+Step 1: File Detection
+Identify type (image / PDF / CSV)
+Step 2: Extraction
+Images:
+OCR → extract raw text
+PDFs:
+Parse text
+CSV:
+Direct structured read
+Step 3: 🔥 LLM STRUCTURED EXTRACTION (via Groq)
+
+Send raw text → LLM
+
+Extract into structured JSON:
+
+Orders
+Revenue
+Products
+Customers
+Dates
+Quantities
+Step 4: Normalization
+
+Convert into unified schema:
+
+Collections:
+
+orders
+products
+customers
+reviews
+inventory
+traffic
+Step 5: Store in Firebase
+
+Each business has:
+
+its own dataset
+consistent schema
+🧠 5. UNIFIED DATA ENGINE
+
+Combine all data into 4 pillars:
+
+Traffic
+Sales
+Operations
+Feedback
+📊 6. DASHBOARD STRUCTURE
+A. WHAT IS HAPPENING
+
+Display:
+
+Revenue trend
+Order volume
+Conversion rate
+Inventory health
+Customer retention
+Review sentiment
+Peak hours
+B. WHY IT IS HAPPENING (CRITICAL)
+
+AI-generated explanations using:
+
+time patterns
+location context
+correlations
+
+Examples:
+
+Sales dropped due to reduced evening traffic
+Low noon activity due to high temperature patterns
+Negative reviews due to slow service
+Revenue loss due to stockouts
+
+👉 Must be logical, not random
+
+C. WHAT TO DO NEXT
+Standard Actions:
+Restock items
+Reply to reviews
+Adjust pricing
+Optimize staffing
+🔥 Advanced Suggestions:
+Offer cold beverages during hot hours
+Bundle slow-selling products
+Target repeat customers
+Run time-based promotions
+
+👉 Must be grounded in data
+
+⚙️ 7. AUTOMATION SYSTEM (IMPORTANT)
+
+This is your #2 integration (workflow automation)
+
+AUTOMATION TYPES:
+1. Task Automation
+Create daily action list
+Schedule follow-ups
+2. Inventory Automation
+Auto reorder alerts
+Low stock triggers
+3. Customer Automation
+Generate review replies
+Follow-up messages
+4. Insight-triggered Actions
+
+When AI detects issue:
+→ Suggest automation
+
+Example:
+
+“Stock low → Create reorder task”
+“Bad reviews → Generate replies”
+UX:
+
+Each recommendation has:
+👉 “Take Action” button
+
+🧠 8. MINI ML MODEL
+
+Keep simple but real:
+
+Features:
+Sales trend prediction
+Demand forecasting
+Anomaly detection
+Example Outputs:
+“Product X will go out of stock in 3 days”
+“Sales expected to increase this weekend”
+Positioning:
+
+“Model learns patterns over time to improve recommendations”
+
+📦 9. DEMO DATA (CRITICAL)
+
+Use your datasets:
+
+customers
+products
+people
+Derive:
+top products
+repeat customers
+customer segments
+revenue trends
+
+Each of 6 businesses:
+
+has unique realistic dataset
+same schema
+🌐 10. DATA SOURCES PANEL
+
+Show:
+
+Connected:
+Document Upload ✔️
+Inventory ✔️
+Google Business ✔️
+Mock:
+Instagram (mock)
+CRM (mock)
+🚀 11. INNOVATION HIGHLIGHTS
+
+Show explicitly in UI or PPT:
+
+AI OCR → converts unstructured data
+AI reasoning layer (WHY insights)
+Goal-aware analytics
+Business auto-detection
+Unified intelligence layer
+Insight → Action automation
+🚨 CONSTRAINTS (VERY IMPORTANT)
+DO NOT:
+Build real-time integrations for everything
+Overload dashboard
+Make random AI outputs
+Try full automation system
+LIMIT:
+6–8 metrics
+3–5 insights
+3–5 actions
+🏆 FINAL EXPERIENCE
+
+User flow:
+
+Upload data
+System analyzes
+Dashboard shows:
+what is happening
+why
+what to do
+User clicks action
+System creates task / automation
+🎯 FINAL PITCH LINE
+
+“We transform raw business data into intelligent decisions by answering what is happening, why it is happening, and what to do next—while enabling immediate action through automation.”

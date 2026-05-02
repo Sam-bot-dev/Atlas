@@ -1,0 +1,121 @@
+// Atlas — Prisma Schema
+// Persistent SQLite database for Phase 2 (swappable to Postgres later)
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Users ───────────────────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  businesses Business[]
+}
+
+// ─── Businesses ──────────────────────────────────────────────────
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  type      String   @default("") // E.g. 'Home Baker', 'Retail Shop'
+  location  String   @default("")
+  owner     String   @default("")
+  initials  String   @default("")
+  color     String   @default("#4f46e5")
+  placeId   String   @default("")
+  address   String   @default("")
+  
+  // Historical data & Charts (JSON strings)
+  peakHours       String   @default("[]") 
+  revenueSeries   String   @default("[]")
+  ordersSeries    String   @default("[]")
+  customerGrowth  String   @default("[]")
+  topMovers       String   @default("[]")
+  spendingMix     String   @default("[]")
+  
+  goals     String   @default("[]") // JSON array of goal IDs
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dataSources DataSource[]
+  metrics     Metric[]
+  insights    Insight[]
+  actions     Action[]
+}
+
+// ─── Data Sources ────────────────────────────────────────────────
+model DataSource {
+  id        String   @id @default(cuid())
+  type      String   // 'file_upload' | 'google_business' | 'square' | 'instagram' | 'shopify'
+  name      String   // Original filename or integration name
+  status    String   @default("pending") // 'pending' | 'processing' | 'complete' | 'failed'
+  fileUrl   String   @default("")
+  meta      String   @default("{}") // JSON blob for extra metadata (size, mime, etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ─── Metrics ─────────────────────────────────────────────────────
+model Metric {
+  id     String @id @default(cuid())
+  key    String // 'revenue' | 'orders' | 'conversion' | 'inventory' | 'retention' | 'sentiment'
+  value  Float
+  delta  Float  @default(0) // percentage change
+  unit   String @default("")
+  period String @default("vs last month")
+  label  String @default("")
+
+  createdAt DateTime @default(now())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, key]) // one metric per key per business
+}
+
+// ─── Insights ────────────────────────────────────────────────────
+model Insight {
+  id       String @id @default(cuid())
+  title    String
+  body     String
+  severity String @default("info") // 'positive' | 'negative' | 'warning' | 'info'
+  evidence String @default("[]") // JSON array of evidence tags
+
+  createdAt DateTime @default(now())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ─── Actions ─────────────────────────────────────────────────────
+model Action {
+  id         String  @id @default(cuid())
+  title      String
+  body       String
+  impact     String  @default("Medium") // 'High' | 'Medium' | 'Low'
+  effort     String  @default("Medium")
+  confidence String  @default("Medium")
+  urgent     Boolean @default(false)
+  status     String  @default("pending") // 'pending' | 'in_progress' | 'done' | 'dismissed'
+
+  createdAt DateTime @default(now())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
