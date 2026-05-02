@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Landing } from './landing';
 import { Login, Onboarding } from './auth-onboarding';
 import { Sidebar, TopBar, BusinessSwitcher } from './shell';
+import { Icon } from './ui';
 import { Overview } from './overview';
 import { Analytics, DataSources, Automations, Reports, Settings } from './pages';
 import { PricingPage } from './pricing';
