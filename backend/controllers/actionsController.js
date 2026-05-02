@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
+const { createTask } = require('../services/taskService');
 
 // @desc    Get all actions for a business
 // @route   GET /api/v1/businesses/:bizId/actions
@@ -131,9 +132,48 @@ const applyAction = asyncHandler(async (req, res) => {
   res.json(updated);
 });
 
+// @desc    Create a task from an action
+// @route   POST /api/v1/businesses/:bizId/actions/:actionId/task
+// @access  Private
+const createTaskFromAction = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+
+  if (!business) {
+    res.status(404);
+    throw new Error('Business not found');
+  }
+
+  const existing = await prisma.action.findFirst({
+    where: { id: req.params.actionId, businessId: req.params.bizId },
+  });
+
+  if (!existing) {
+    res.status(404);
+    throw new Error('Action not found');
+  }
+
+  const task = await createTask({
+    businessId: req.params.bizId,
+    title: `Task: ${existing.title}`,
+    description: existing.body,
+    actionId: existing.id,
+  });
+
+  // Mark action as in_progress since a task was created
+  await prisma.action.update({
+    where: { id: existing.id },
+    data: { status: 'in_progress' }
+  });
+
+  res.status(201).json(task);
+});
+
 module.exports = {
   getActions,
   createAction,
   updateAction,
   applyAction,
+  createTaskFromAction,
 };

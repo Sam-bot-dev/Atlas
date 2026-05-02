@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
+const { forecastRevenue } = require('../services/mlService');
 
 // @desc    Get all metrics for a business
 // @route   GET /api/v1/businesses/:bizId/metrics
@@ -77,7 +78,25 @@ const upsertMetric = asyncHandler(async (req, res) => {
   res.json(metric);
 });
 
+// @desc    Get metrics forecast
+// @route   GET /api/v1/businesses/:bizId/metrics/forecast
+// @access  Private
+const getForecast = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+
+  if (!business) {
+    res.status(404);
+    throw new Error('Business not found');
+  }
+
+  const forecast = await forecastRevenue(req.params.bizId);
+  res.json(forecast);
+});
+
 module.exports = {
   getMetrics,
   upsertMetric,
+  getForecast,
 };

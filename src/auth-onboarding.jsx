@@ -93,7 +93,14 @@ export const Onboarding = ({ onComplete, onBack }) => {
       // Trigger AI detection simulation when moving from step 0 → 1
       setStep(1);
       setDetecting(true);
-      setTimeout(() => { setDetecting(false); setDetectDone(true); }, 2200);
+      AtlasAPI.businesses.detect(bizName, bizAddr).then(() => {
+        setDetecting(false);
+        setDetectDone(true);
+      }).catch(e => {
+        // Fallback to static progression on error so the user isn't stuck
+        setDetecting(false); 
+        setDetectDone(true);
+      });
       return;
     }
     

@@ -61,6 +61,8 @@ model Business {
   reviews     Review[]
   inventory   InventoryItem[]
   traffic     TrafficPoint[]
+  tasks       Task[]
+  automations Automation[]
 }
 
 // ─── Data Sources ────────────────────────────────────────────────
@@ -261,4 +263,36 @@ model Action {
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  status      String   @default("pending") // 'pending' | 'completed'
+  dueDate     DateTime?
+  actionId    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ─── Automations ─────────────────────────────────────────────────
+model Automation {
+  id          String   @id @default(cuid())
+  trigger     String   // e.g. 'inventory_low', 'negative_review'
+  actionType  String   // e.g. 'email_alert', 'webhook_post', 'create_task'
+  status      String   @default("active") // 'active' | 'disabled'
+  payload     String   @default("{}") // JSON configuration
+  lastRunAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
