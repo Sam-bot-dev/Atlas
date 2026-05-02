@@ -48,19 +48,20 @@ export default function App() {
     }
   }, [view]);
 
-  useEffect(() => {
+  const refreshBusiness = () => {
     if (view === 'dashboard' && bizId) {
       import('./api').then(({ AtlasAPI }) => {
         AtlasAPI.businesses.get(bizId).then(data => {
           setCurrentBusiness(data);
         }).catch(() => {
-          // Fallback to static if API fails or not found (e.g. mock IDs)
-          if (ATLAS_BUSINESSES[bizId]) {
-            setCurrentBusiness(ATLAS_BUSINESSES[bizId]);
-          }
+          if (ATLAS_BUSINESSES[bizId]) setCurrentBusiness(ATLAS_BUSINESSES[bizId]);
         });
       });
     }
+  };
+
+  useEffect(() => {
+    refreshBusiness();
   }, [view, bizId]);
 
   const business = currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker'];
@@ -166,7 +167,7 @@ export default function App() {
               user={currentUser}
             />
             <div style={{ flex: 1 }}>
-              <PageComponent business={business} key={bizId + page}/>
+              <PageComponent business={business} onRefresh={refreshBusiness} key={bizId + page}/>
             </div>
             
             {/* Chat Trigger FAB */}

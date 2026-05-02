@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icon, Delta, fmtINR, SectionHeader } from './ui';
+import { Icon, Delta, fmtINR, SectionHeader, SkeletonLine, SkeletonCircle } from './ui';
 import { LineChart, BarChart } from './charts';
 import { AtlasAPI } from './api';
 
@@ -50,7 +50,7 @@ export const Analytics = ({ business: initialBusiness }) => {
         <div className={`card ${loading ? 'loading-shimmer' : ''}`} style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Revenue</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
-            {fmtINR(revenue.value)} <Delta value={revenue.delta}/>
+            {loading ? <SkeletonLine width="60%" height={24}/> : <>{fmtINR(revenue.value)} <Delta value={revenue.delta}/></>}
           </div>
           <LineChart data={initialBusiness.revenueSeries} height={220} accent="var(--ink-1)"/>
         </div>
@@ -93,7 +93,7 @@ export const Analytics = ({ business: initialBusiness }) => {
   );
 };
 
-export const DataSources = ({ business }) => {
+export const DataSources = ({ business, onRefresh }) => {
   const [dragOver, setDragOver] = React.useState(false);
   const [processing, setProcessing] = React.useState(null);
   const [uploadJobs, setUploadJobs] = React.useState([]);
@@ -147,6 +147,7 @@ export const DataSources = ({ business }) => {
 
       if (status.status === 'complete') {
         setProcessing('Data ready');
+        if (onRefresh) onRefresh();
         setTimeout(() => setProcessing(null), 900);
         return;
       }
@@ -409,6 +410,18 @@ export const Reports = ({ business }) => {
 export const Settings = ({ business }) => {
   const [goals, setGoals] = React.useState(business.goals || []);
   const [saving, setSaving] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!business.id.startsWith('demo-')) {
+      setLoading(true);
+      AtlasAPI.settings.get(business.id)
+        .then(data => {
+          if (data && data.goals) setGoals(data.goals);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [business.id]);
 
   const goalOptions = [
     { id: 'rev', label: 'Increase revenue' },

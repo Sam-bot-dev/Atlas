@@ -129,6 +129,29 @@ async function gatherBusinessContext(businessId, business, metrics) {
       lowStockItems: lowStockItems.slice(0, 3),
       trafficPatterns: traffic.slice(0, 10),
     },
+    environmental: getMockEnvironmentalContext(business.location),
+  };
+}
+
+/**
+ * Simulates weather context based on location and current month
+ * In a real app, this would call OpenWeatherMap API
+ */
+function getMockEnvironmentalContext(location = '') {
+  const month = new Date().getMonth();
+  const isSummer = month >= 2 && month <= 5;
+  const isMonsoon = month >= 6 && month <= 9;
+  
+  let temp = isSummer ? 38 : (isMonsoon ? 28 : 24);
+  let condition = isSummer ? 'Sunny' : (isMonsoon ? 'Rainy' : 'Clear');
+  
+  if (location.toLowerCase().includes('bangalore')) temp -= 5;
+  if (location.toLowerCase().includes('delhi') && isSummer) temp += 5;
+
+  return {
+    temp: `${temp}°C`,
+    condition,
+    impact: isSummer ? 'Heat affects afternoon foot traffic' : (isMonsoon ? 'Rain increases delivery demand' : 'Favorable conditions'),
   };
 }
 
@@ -180,8 +203,9 @@ Context:
 - Repeat customers: ${context.patterns.repeatCustomerCount}/${context.patterns.totalCustomers}
 
 Time: ${context.timeContext.isDayOfWeek}, ${getSeason(context.timeContext.currentMonth)}, ${context.timeContext.currentHour}:00
+Environmental: ${context.environmental.temp}, ${context.environmental.condition} (${context.environmental.impact})
 
-Generate insights explaining why these metrics are at these levels.`;
+Generate insights explaining why these metrics are at these levels. Encourage taking advantage of favorable weather or mitigating negative weather impacts where applicable.`;
 
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',

@@ -188,9 +188,13 @@ const detectBusiness = asyncHandler(async (req, res) => {
         let category = 'Service Business';
         if (types.includes('bakery')) category = 'Home Baker';
         else if (types.includes('cafe') || types.includes('coffee_shop')) category = 'Cafe';
-        else if (types.includes('pharmacy') || types.includes('drugstore')) category = 'Pharmacy';
-        else if (types.includes('store') || types.includes('clothing_store') || types.includes('shopping_mall')) category = 'Retail Shop';
-        else if (types.includes('logistics') || types.includes('moving_company')) category = 'Import/Export';
+        else if (types.includes('pharmacy') || types.includes('drugstore') || types.includes('health')) category = 'Pharmacy';
+        else if (types.includes('clothing_store') || types.includes('shoe_store') || types.includes('jewelry_store') || types.includes('shopping_mall')) category = 'Retail Shop';
+        else if (types.includes('gym') || types.includes('health_club') || types.includes('fitness_center')) category = 'Gym/Fitness';
+        else if (types.includes('beauty_salon') || types.includes('hair_care') || types.includes('spa')) category = 'Salon/Spa';
+        else if (types.includes('restaurant') || types.includes('meal_takeaway')) category = 'Restaurant';
+        else if (types.includes('logistics') || types.includes('moving_company') || types.includes('storage')) category = 'Import/Export';
+        else if (types.includes('electronics_store') || types.includes('home_goods_store')) category = 'Retail Shop';
 
         details = {
           name: place.name || name,
