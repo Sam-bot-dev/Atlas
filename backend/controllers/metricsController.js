@@ -1,12 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
-const {
-  calculateMetrics,
-  calculatePeakHours,
-  saveMetrics,
-} = require('../services/metricService');
+const { forecastRevenue } = require('../services/mlService');
 
-// @desc    Get all metrics for a business (with real-time calculation)
+// @desc    Get all metrics for a business
 // @route   GET /api/v1/businesses/:bizId/metrics
 // @access  Private
 const getMetrics = asyncHandler(async (req, res) => {
@@ -20,31 +16,26 @@ const getMetrics = asyncHandler(async (req, res) => {
     throw new Error('Business not found');
   }
 
-  // Calculate fresh metrics from data
-  const metrics = await calculateMetrics(req.params.bizId);
-
-  // Save to DB for reference
-  await saveMetrics(req.params.bizId, metrics);
-
-  // Calculate peak hours
-  const peakHours = await calculatePeakHours(req.params.bizId);
+  const metrics = await prisma.metric.findMany({
+    where: { businessId: req.params.bizId },
+  });
 
   // Transform into the summary shape the frontend expects
-  const summary = {
-    revenue: metrics.revenue,
-    orders: metrics.orders,
-    conversion: metrics.conversion,
-    inventory: metrics.inventory,
-    retention: metrics.retention,
-    sentiment: metrics.sentiment,
-    peakHours,
-    calculatedAt: metrics.calculatedAt,
-  };
+  const summary = {};
+  metrics.forEach((m) => {
+    summary[m.key] = {
+      value: m.value,
+      delta: m.delta,
+      label: m.label,
+      unit: m.unit,
+      period: m.period,
+    };
+  });
 
   res.json(summary);
 });
 
-// @desc    Upsert a metric for a business (manual override)
+// @desc    Upsert a metric for a business
 // @route   PUT /api/v1/businesses/:bizId/metrics/:key
 // @access  Private
 const upsertMetric = asyncHandler(async (req, res) => {
@@ -87,7 +78,25 @@ const upsertMetric = asyncHandler(async (req, res) => {
   res.json(metric);
 });
 
+// @desc    Get metrics forecast
+// @route   GET /api/v1/businesses/:bizId/metrics/forecast
+// @access  Private
+const getForecast = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+
+  if (!business) {
+    res.status(404);
+    throw new Error('Business not found');
+  }
+
+  const forecast = await forecastRevenue(req.params.bizId);
+  res.json(forecast);
+});
+
 module.exports = {
   getMetrics,
   upsertMetric,
+  getForecast,
 };

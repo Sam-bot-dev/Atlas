@@ -1,14 +1,7 @@
 // Atlas — API client
-// All endpoints connected to backend. Supports real API + demo mode.
+// All endpoints stubbed. Swap API_BASE and getToken() for real backend.
 
-// Environment-based API configuration
-const API_BASE = 
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3001/api/v1'
-    : import.meta.env.VITE_API_BASE || '/api/v1';
-
-// Fallback to demo mode if API unavailable
-let DEMO_MODE = false;
+const API_BASE = '/api/v1';
 
 const getToken = () => {
   try { return sessionStorage.getItem('atlas-token') || ''; } catch { return ''; }
@@ -34,85 +27,27 @@ const handleResponse = async (res) => {
   return res.json();
 };
 
-// Retry logic for failed requests
-const retryFetch = async (path, options = {}, retries = 3, delay = 1000) => {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const res = await fetch(API_BASE + path, { ...options, timeout: 10000 });
-      return res;
-    } catch (error) {
-      if (attempt === retries - 1) throw error;
-      await new Promise(r => setTimeout(r, delay * Math.pow(2, attempt)));
-    }
-  }
-};
-
-const get = async (path, params) => {
+const get = (path, params) => {
   const url = new URL(API_BASE + path, window.location.origin);
   if (params) Object.entries(params).forEach(([k, v]) => v != null && url.searchParams.set(k, v));
-  try {
-    const res = await retryFetch(url.pathname + url.search);
-    return handleResponse(res);
-  } catch (error) {
-    console.error('GET request failed:', error);
-    throw error;
-  }
+  return fetch(url, { headers: headers() }).then(handleResponse);
 };
 
-const post = async (path, body) => {
-  try {
-    const res = await retryFetch(path, { 
-      method: 'POST', 
-      headers: headers(), 
-      body: JSON.stringify(body) 
-    });
-    return handleResponse(res);
-  } catch (error) {
-    console.error('POST request failed:', error);
-    throw error;
-  }
-};
+const post = (path, body) =>
+  fetch(API_BASE + path, { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(handleResponse);
 
-const patch = async (path, body) => {
-  try {
-    const res = await retryFetch(path, { 
-      method: 'PATCH', 
-      headers: headers(), 
-      body: JSON.stringify(body) 
-    });
-    return handleResponse(res);
-  } catch (error) {
-    console.error('PATCH request failed:', error);
-    throw error;
-  }
-};
+const patch = (path, body) =>
+  fetch(API_BASE + path, { method: 'PATCH', headers: headers(), body: JSON.stringify(body) }).then(handleResponse);
 
-const del = async (path) => {
-  try {
-    const res = await retryFetch(path, { 
-      method: 'DELETE', 
-      headers: headers() 
-    });
-    return handleResponse(res);
-  } catch (error) {
-    console.error('DELETE request failed:', error);
-    throw error;
-  }
-};
+const del = (path) =>
+  fetch(API_BASE + path, { method: 'DELETE', headers: headers() }).then(handleResponse);
 
-const upload = async (path, formData) => {
-  try {
-    const res = await fetch(API_BASE + path, {
-      method: 'POST',
-      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
-      body: formData,
-    });
-    return handleResponse(res);
-  } catch (error) {
-    console.error('Upload request failed:', error);
-    throw error;
-  }
-};
+const upload = (path, formData) =>
+  fetch(API_BASE + path, {
+    method: 'POST',
+    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    body: formData,
+  }).then(handleResponse);
 
 const AtlasAPI = {
   auth: {
@@ -183,4 +118,4 @@ const AtlasAPI = {
   },
 };
 
-export { AtlasAPI, DEMO_MODE };
+export { AtlasAPI };

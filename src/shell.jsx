@@ -149,8 +149,9 @@ const AskAtlas = ({ onClose, business }) => {
     if (!query.trim()) return;
     setLoading(true);
     setAnswer(null);
-    // AtlasAPI.ask(business.id, query).then(r => { setLoading(false); setAnswer(r.answer); });
-    setTimeout(() => { setLoading(false); setAnswer('This would be answered by the Atlas reasoning engine using your live data.'); }, 1400);
+    AtlasAPI.ask(business.id, query)
+      .then(r => { setLoading(false); setAnswer(r.answer || r.text || 'Response received.'); })
+      .catch(e => { setLoading(false); setAnswer('Error generating reasoning insight. Please try again.'); });
   };
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }} onClick={onClose}>
