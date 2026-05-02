@@ -217,6 +217,8 @@ The `upload` pipeline: `AtlasAPI.uploads.upload(bizId, file)` → poll `AtlasAPI
 
 ### Known issues
 - `TweakSection` in tweaks-panel.jsx uses `label` prop but App.jsx calls it with `title` prop — works because it just renders the value, but inconsistent naming.
+- Image OCR needs `GOOGLE_VISION_API_KEY`; without it, image uploads are accepted but OCR returns an explicit skipped warning.
+- Groq extraction needs `GROQ_API_KEY`; without it, Atlas uses the deterministic CSV/text extractor.
 
 ---
 
@@ -246,3 +248,13 @@ The `upload` pipeline: `AtlasAPI.uploads.upload(bizId, file)` → poll `AtlasAPI
 - **Legacy Cleanup**: Deleted the entire legacy `frontend/` directory to prevent duplicate file issues.
 - **Aesthetic Refinement**: Enhanced `styles.css` with `.text-gradient`, `.brand-glow`, and `.brand-grid`. Applied these to `landing.jsx` alongside updated hero typography, glassmorphism (`backdrop-filter: blur(12px)`) for the navbar, and enhanced card hover states with larger shadows and translations.
 - **Bug Fixes**: Addressed build errors caused by unescaped single quotes within object literals in `data.jsx`.
+
+### Session 3 (2026-05-02) — Codex
+**Completed:**
+- Implemented Phase 3 ingestion backend: multipart upload routes, durable local storage, `UploadJob` status model, and async in-process worker queue.
+- Added extraction pipeline for CSV, JSON, text, PDF, optional Google Vision image OCR, optional Groq LLM structured extraction, deterministic fallback extraction, and Zod validation.
+- Added normalized Prisma collections: `Order`, `Product`, `Customer`, `Review`, `InventoryItem`, and `TrafficPoint`.
+- Added normalization engine that stores extracted records by business/source, refreshes upload-derived metrics, and creates grounded insight/action records.
+- Wired Data Sources UI to real `AtlasAPI.uploads.upload/list/status/delete` endpoints with polling and demo fallback.
+- Added Phase 3 migration and marked local SQLite schema in sync without resetting data.
+- Verification: `npm run build`, `npx prisma migrate status`, backend CSV upload smoke test (`2 orders`, `2 products`, `2 customers`, `2 inventory`).

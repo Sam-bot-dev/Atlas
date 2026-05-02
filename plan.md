@@ -41,22 +41,28 @@ The project has successfully been transitioned from a standalone UI prototype to
 
 ---
 
-## Phase 3: The AI Data Ingestion Pipeline
+## Phase 3: The AI Data Ingestion Pipeline (✅ Completed)
 *Objective: Build the core capability to ingest unstructured files and convert them into a unified schema.*
 
-- **Step 1: Cloud Storage Setup**
-  - Firebase Storage for file uploads (PDFs, Images, CSVs).
-  - Create the `POST /api/v1/uploads` endpoint to handle multipart form data.
-- **Step 2: OCR & Text Extraction**
-  - Integrate an OCR service (Google Cloud Vision API) for screenshots and PDFs.
-  - Create worker queues (e.g., BullMQ or Celery) to process files asynchronously without blocking the UI.
-- **Step 3: LLM Structured Extraction (Groq Integration)**
-  - Integrate the Groq API (or OpenAI/Anthropic).
-  - Design the master extraction prompt: *Take this raw OCR text. Extract structured JSON containing Orders, Revenue, Products, Customers, Dates, and Quantities.*
-  - Implement robust JSON schema validation (e.g., Pydantic or Zod) to ensure the LLM output rigidly matches our `collections` schema (`orders`, `products`, `customers`, `reviews`, `inventory`).
-- **Step 4: Normalization & Storage Engine**
-  - Write normalization scripts to map the extracted structured JSON into the actual database tables/collections.
-  - Surface processing status back to the frontend (`AtlasAPI.uploads.status`) to replace the mock `setTimeout` loading states.
+- **Step 1: Storage & Upload API** ✅
+  - Local durable upload storage under `backend/storage/uploads` (ignored by git; Firebase-ready boundary).
+  - `POST /api/v1/businesses/:bizId/uploads` handles multipart files.
+  - `GET /api/v1/businesses/:bizId/uploads` lists jobs.
+  - `GET /api/v1/businesses/:bizId/uploads/:uploadId` returns live status.
+  - `DELETE /api/v1/businesses/:bizId/uploads/:uploadId` removes the upload source.
+- **Step 2: OCR & Text Extraction** ✅
+  - CSV, JSON, text, and PDF extraction implemented.
+  - Image OCR implemented via optional `GOOGLE_VISION_API_KEY`.
+  - Async in-process worker queue prevents upload requests from blocking.
+- **Step 3: LLM Structured Extraction (Groq Integration)** ✅
+  - Optional Groq extraction via `GROQ_API_KEY`.
+  - Deterministic fallback extractor handles CSV/text when no LLM key is present.
+  - Zod schema validation enforces normalized `orders`, `products`, `customers`, `reviews`, `inventory`, and `traffic` collections.
+- **Step 4: Normalization & Storage Engine** ✅
+  - Prisma models added for `UploadJob`, `Order`, `Product`, `Customer`, `Review`, `InventoryItem`, and `TrafficPoint`.
+  - Normalizer stores extracted data per business and per source.
+  - Upload completion refreshes relevant metrics and creates evidence-backed insight/action records.
+  - Frontend Data Sources page now uploads files and polls `AtlasAPI.uploads.status`; unauthenticated demo mode falls back to the visual demo flow.
 
 ---
 

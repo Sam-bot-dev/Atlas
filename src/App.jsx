@@ -98,6 +98,21 @@ export default function App() {
     reports: Reports,
     settings: Settings,
   }[page] || Overview;
+  const allBusinesses = apiBusinesses.reduce((acc, biz) => ({
+    ...acc,
+    [biz.id]: {
+      ...ATLAS_BUSINESSES[biz.id],
+      ...biz,
+      type: biz.type || biz.category || ATLAS_BUSINESSES[biz.id]?.type || 'Business',
+      location: biz.location || biz.address || ATLAS_BUSINESSES[biz.id]?.location || '',
+      initials: biz.initials || biz.name?.slice(0, 2).toUpperCase() || 'AT',
+      metrics: ATLAS_BUSINESSES[biz.id]?.metrics || ATLAS_BUSINESSES.baker.metrics,
+      revenueSeries: ATLAS_BUSINESSES[biz.id]?.revenueSeries || ATLAS_BUSINESSES.baker.revenueSeries,
+      ordersSeries: ATLAS_BUSINESSES[biz.id]?.ordersSeries || ATLAS_BUSINESSES.baker.ordersSeries,
+      customerGrowth: ATLAS_BUSINESSES[biz.id]?.customerGrowth || ATLAS_BUSINESSES.baker.customerGrowth,
+      topMovers: ATLAS_BUSINESSES[biz.id]?.topMovers || [],
+    },
+  }), { ...ATLAS_BUSINESSES });
 
   const sharpClass = tweaks.sharpEdges ? 'sharp' : '';
   const densityClass = tweaks.density === 'compact' ? 'compact' : '';

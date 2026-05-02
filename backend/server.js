@@ -20,6 +20,7 @@ app.use('/api/v1/businesses', require('./routes/businessRoutes'));
 app.use('/api/v1/businesses/:bizId/metrics', require('./routes/metricsRoutes'));
 app.use('/api/v1/businesses/:bizId/insights', require('./routes/insightsRoutes'));
 app.use('/api/v1/businesses/:bizId/actions', require('./routes/actionsRoutes'));
+app.use('/api/v1/businesses/:bizId/uploads', require('./routes/uploadsRoutes'));
 
 // Health check
 app.get('/api/v1/health', (req, res) => {

@@ -24,25 +24,25 @@ model User {
 
 // ─── Businesses ──────────────────────────────────────────────────
 model Business {
-  id        String   @id @default(cuid())
-  name      String
-  category  String
-  type      String   @default("") // E.g. 'Home Baker', 'Retail Shop'
-  location  String   @default("")
-  owner     String   @default("")
-  initials  String   @default("")
-  color     String   @default("#4f46e5")
-  placeId   String   @default("")
-  address   String   @default("")
-  
+  id       String @id @default(cuid())
+  name     String
+  category String
+  type     String @default("") // E.g. 'Home Baker', 'Retail Shop'
+  location String @default("")
+  owner    String @default("")
+  initials String @default("")
+  color    String @default("#4f46e5")
+  placeId  String @default("")
+  address  String @default("")
+
   // Historical data & Charts (JSON strings)
-  peakHours       String   @default("[]") 
-  revenueSeries   String   @default("[]")
-  ordersSeries    String   @default("[]")
-  customerGrowth  String   @default("[]")
-  topMovers       String   @default("[]")
-  spendingMix     String   @default("[]")
-  
+  peakHours      String @default("[]")
+  revenueSeries  String @default("[]")
+  ordersSeries   String @default("[]")
+  customerGrowth String @default("[]")
+  topMovers      String @default("[]")
+  spendingMix    String @default("[]")
+
   goals     String   @default("[]") // JSON array of goal IDs
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -51,16 +51,23 @@ model Business {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   dataSources DataSource[]
+  uploadJobs  UploadJob[]
   metrics     Metric[]
   insights    Insight[]
   actions     Action[]
+  orders      Order[]
+  products    Product[]
+  customers   Customer[]
+  reviews     Review[]
+  inventory   InventoryItem[]
+  traffic     TrafficPoint[]
 }
 
 // ─── Data Sources ────────────────────────────────────────────────
 model DataSource {
   id        String   @id @default(cuid())
-  type      String   // 'file_upload' | 'google_business' | 'square' | 'instagram' | 'shopify'
-  name      String   // Original filename or integration name
+  type      String // 'file_upload' | 'google_business' | 'square' | 'instagram' | 'shopify'
+  name      String // Original filename or integration name
   status    String   @default("pending") // 'pending' | 'processing' | 'complete' | 'failed'
   fileUrl   String   @default("")
   meta      String   @default("{}") // JSON blob for extra metadata (size, mime, etc.)
@@ -69,6 +76,142 @@ model DataSource {
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  uploadJobs UploadJob[]
+  orders     Order[]
+  products   Product[]
+  customers  Customer[]
+  reviews    Review[]
+  inventory  InventoryItem[]
+  traffic    TrafficPoint[]
+}
+
+// ─── Phase 3 Upload Jobs ────────────────────────────────────────
+model UploadJob {
+  id             String   @id @default(cuid())
+  status         String   @default("queued") // queued | processing | complete | failed
+  stage          String   @default("queued") // detect | extract | llm | normalize | complete
+  originalName   String
+  mimeType       String
+  size           Int
+  storagePath    String
+  detectedType   String   @default("unknown") // csv | pdf | image | text | json | spreadsheet
+  rawText        String   @default("")
+  extractedJson  String   @default("{}")
+  normalizedJson String   @default("{}")
+  error          String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  sourceId String
+  source   DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+// ─── Normalized Collections ─────────────────────────────────────
+model Order {
+  id            String    @id @default(cuid())
+  externalId    String    @default("")
+  orderDate     DateTime?
+  customerName  String    @default("")
+  customerPhone String    @default("")
+  productName   String    @default("")
+  quantity      Float     @default(0)
+  unitPrice     Float     @default(0)
+  total         Float     @default(0)
+  channel       String    @default("")
+  rawPayload    String    @default("{}")
+  createdAt     DateTime  @default(now())
+
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceId   String
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  sku            String   @default("")
+  name           String
+  category       String   @default("")
+  unitsSold      Float    @default(0)
+  revenue        Float    @default(0)
+  quantityOnHand Float    @default(0)
+  reorderPoint   Float    @default(0)
+  rawPayload     String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceId   String
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  externalId  String   @default("")
+  name        String   @default("")
+  phone       String   @default("")
+  email       String   @default("")
+  ordersCount Int      @default(0)
+  totalSpend  Float    @default(0)
+  segment     String   @default("")
+  rawPayload  String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceId   String
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         String    @id @default(cuid())
+  platform   String    @default("")
+  rating     Float     @default(0)
+  body       String    @default("")
+  sentiment  String    @default("neutral")
+  reviewDate DateTime?
+  rawPayload String    @default("{}")
+  createdAt  DateTime  @default(now())
+
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceId   String
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model InventoryItem {
+  id             String   @id @default(cuid())
+  sku            String   @default("")
+  itemName       String
+  quantityOnHand Float    @default(0)
+  reorderPoint   Float    @default(0)
+  status         String   @default("ok")
+  rawPayload     String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceId   String
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model TrafficPoint {
+  id          String    @id @default(cuid())
+  occurredAt  DateTime?
+  channel     String    @default("")
+  visitors    Int       @default(0)
+  conversions Int       @default(0)
+  rawPayload  String    @default("{}")
+  createdAt   DateTime  @default(now())
+
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceId   String
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 }
 
 // ─── Metrics ─────────────────────────────────────────────────────

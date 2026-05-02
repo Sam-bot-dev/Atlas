@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon, Delta, fmtINR, SectionHeader } from './ui';
 import { LineChart, BarChart } from './charts';
+import { AtlasAPI } from './api';
 
 // Atlas — Other dashboard pages: Analytics, Sources, Automations, Reports, Settings
 
@@ -76,6 +77,21 @@ export const Analytics = ({ business }) => {
 export const DataSources = ({ business }) => {
   const [dragOver, setDragOver] = React.useState(false);
   const [processing, setProcessing] = React.useState(null);
+  const [uploadJobs, setUploadJobs] = React.useState([]);
+  const fileInputRef = React.useRef(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    AtlasAPI.uploads.list(business.id)
+      .then((jobs) => {
+        if (!cancelled) setUploadJobs(jobs);
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [business.id]);
+
   const sources = [
     ...(business.dataSources || []).map(ds => ({
       name: ds.name,
@@ -84,6 +100,13 @@ export const DataSources = ({ business }) => {
       last: `Added ${new Date(ds.createdAt).toLocaleDateString()}`,
       icon: ds.type.includes('google') ? 'globe' : ds.type.includes('pos') ? 'database' : 'file',
     })),
+    ...uploadJobs.map(job => ({
+      name: job.fileName,
+      kind: job.detectedType,
+      status: job.status === 'complete' ? 'connected' : job.status === 'failed' ? 'available' : 'parsed',
+      last: job.status === 'failed' ? job.error || 'Processing failed' : `${job.stage} · ${job.detectedType.toUpperCase()}`,
+      icon: job.detectedType === 'image' ? 'image' : 'file',
+    })),
     { name: 'Square POS', kind: 'integration', status: 'connected', last: 'Synced 4 min ago', icon: 'database', mock: true },
     { name: 'Google Business', kind: 'integration', status: 'connected', last: 'Synced 1 hour ago', icon: 'globe' },
     { name: 'Instagram', kind: 'integration', status: 'connected', last: 'Synced 12 min ago', icon: 'image', mock: true },
@@ -91,11 +114,55 @@ export const DataSources = ({ business }) => {
     { name: 'Shopify', kind: 'integration', status: 'available', last: 'Connect to enable', icon: 'database', mock: true },
   ];
 
-  const simulateUpload = () => {
-    setProcessing('Extracting structure…');
+  const simulateUpload = (message = 'Extracting structure…') => {
+    setProcessing(message);
     setTimeout(() => setProcessing('Normalizing data…'), 1200);
     setTimeout(() => setProcessing('Linking to existing records…'), 2400);
     setTimeout(() => setProcessing(null), 3600);
+  };
+
+  const pollUpload = async (uploadId) => {
+    for (let i = 0; i < 30; i += 1) {
+      const status = await AtlasAPI.uploads.status(business.id, uploadId);
+      setUploadJobs(prev => [status, ...prev.filter(job => job.id !== status.id)]);
+      setProcessing(`${status.stage}…`);
+
+      if (status.status === 'complete') {
+        setProcessing('Data ready');
+        setTimeout(() => setProcessing(null), 900);
+        return;
+      }
+
+      if (status.status === 'failed') {
+        throw new Error(status.error || 'Processing failed');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+
+    throw new Error('Upload still processing. Check again shortly.');
+  };
+
+  const uploadFile = async (file) => {
+    if (!file) {
+      simulateUpload();
+      return;
+    }
+
+    setProcessing('Extracting structure…');
+    try {
+      const accepted = await AtlasAPI.uploads.upload(business.id, file);
+      setProcessing(`${accepted.stage}…`);
+      await pollUpload(accepted.uploadId);
+    } catch (error) {
+      simulateUpload(error.status === 401 ? 'Login required for live upload. Showing demo flow…' : (error.message || 'Upload failed. Showing demo flow…'));
+    }
+  };
+
+  const handleFiles = (files) => {
+    const file = files?.[0];
+    uploadFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -112,14 +179,21 @@ export const DataSources = ({ business }) => {
         className="card"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); simulateUpload(); }}
-        onClick={simulateUpload}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+        onClick={() => fileInputRef.current?.click()}
         style={{
           padding: 28, borderStyle: 'dashed', textAlign: 'center', cursor: 'pointer', marginBottom: 24,
           borderColor: dragOver ? 'var(--ink-1)' : 'var(--border-strong)',
           background: dragOver ? 'var(--bg-subtle)' : 'var(--bg-elevated)',
           transition: 'all 140ms ease',
         }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.csv,.json,.txt,.png,.jpg,.jpeg,.webp,.xlsx,.xls"
+          onChange={(e) => handleFiles(e.target.files)}
+          style={{ display: 'none' }}
+        />
         {processing ? (
           <>
             <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--ink-1)', margin: '0 auto 12px', animation: 'spin 600ms linear infinite' }}/>
