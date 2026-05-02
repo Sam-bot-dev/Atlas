@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: atlas
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm ci && npm run build && cd backend && npm ci && npx prisma generate
+    startCommand: mkdir -p /var/data /var/data/uploads && touch /var/data/atlas.db && cd backend && npx prisma migrate deploy && npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    disk:
+      name: atlas-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/var/data/atlas.db
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: FRONTEND_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GOOGLE_VISION_API_KEY
+        sync: false

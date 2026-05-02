@@ -90,8 +90,8 @@ async function gatherBusinessContext(businessId, business, metrics) {
     business: {
       id: businessId,
       name: business.name,
-      type: business.type,
-      location: business.location,
+      type: business.type || business.category || 'Business',
+      location: business.location || business.address || 'India',
       category: business.category,
     },
     metrics,
@@ -190,7 +190,7 @@ Generate insights explaining why these metrics are at these levels.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
+        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -299,14 +299,9 @@ function generateFallbackInsights(context) {
  * Save insights to the database
  */
 async function saveInsights(businessId, insights) {
-  // Delete old insights (keep only recent ones)
+  // Keep one current reasoning set per business.
   await prisma.insight.deleteMany({
-    where: {
-      businessId,
-      createdAt: {
-        lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // older than 24 hours
-      },
-    },
+    where: { businessId },
   });
 
   // Save new insights

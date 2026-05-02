@@ -3,15 +3,32 @@ const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcryptjs');
 const { prisma } = require('../lib/prisma');
 
+const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
+const normalizeName = (name = '') => String(name).trim();
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const assertJwtSecret = () => {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET must be set to at least 32 characters');
+  }
+};
+
 // @desc    Register new user
 // @route   POST /api/v1/auth/signup
 // @access  Public
 const signupUser = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const name = normalizeName(req.body.name);
+  const email = normalizeEmail(req.body.email);
+  const password = String(req.body.password || '');
 
   if (!name || !email || !password) {
     res.status(400);
     throw new Error('Please add all fields');
+  }
+
+  if (name.length > 80 || !emailPattern.test(email) || email.length > 254 || password.length < 8 || password.length > 256) {
+    res.status(400);
+    throw new Error('Use a valid email, name under 80 characters, and password between 8 and 256 characters');
   }
 
   // Check if user exists
@@ -47,7 +64,13 @@ const signupUser = asyncHandler(async (req, res) => {
 // @route   POST /api/v1/auth/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const password = String(req.body.password || '');
+
+  if (!email || !password) {
+    res.status(400);
+    throw new Error('Email and password are required');
+  }
 
   // Check for user email
   const user = await prisma.user.findUnique({ where: { email } });
@@ -84,13 +107,19 @@ const getMe = asyncHandler(async (req, res) => {
 
 // Generate JWT
 const generateToken = (id, email) => {
+  assertJwtSecret();
   return jwt.sign({ id, email }, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
 
+const logoutUser = asyncHandler(async (req, res) => {
+  res.json({ success: true });
+});
+
 module.exports = {
   signupUser,
   loginUser,
   getMe,
+  logoutUser,
 };

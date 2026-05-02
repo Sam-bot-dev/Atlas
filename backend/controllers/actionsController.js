@@ -170,10 +170,33 @@ const createTaskFromAction = asyncHandler(async (req, res) => {
   res.status(201).json(task);
 });
 
+const deleteAction = asyncHandler(async (req, res) => {
+  const existing = await prisma.action.findFirst({
+    where: {
+      id: req.params.actionId,
+      businessId: req.params.bizId,
+      business: { userId: req.user.id },
+    },
+  });
+
+  if (!existing) {
+    res.status(404);
+    throw new Error('Action not found');
+  }
+
+  await prisma.action.update({
+    where: { id: existing.id },
+    data: { status: 'dismissed' },
+  });
+
+  res.json({ id: existing.id, dismissed: true });
+});
+
 module.exports = {
   getActions,
   createAction,
   updateAction,
+  deleteAction,
   applyAction,
   createTaskFromAction,
 };

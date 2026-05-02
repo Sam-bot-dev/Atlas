@@ -11,7 +11,7 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router({ mergeParams: true });
-const uploadDir = path.join(__dirname, '..', 'storage', 'uploads');
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'storage', 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -44,7 +44,9 @@ const upload = multer({
       return;
     }
 
-    cb(new Error('Unsupported upload type. Use PDF, CSV, JSON, text, PNG, JPG, or WEBP.'));
+    const err = new Error('Unsupported upload type. Use PDF, CSV, JSON, text, PNG, JPG, WEBP, XLS, or XLSX.');
+    err.statusCode = 400;
+    cb(err);
   },
 });
 

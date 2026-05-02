@@ -1,6 +1,7 @@
 import React from 'react';
 import { BizAvatar, Icon } from './ui';
 import { ATLAS_BUSINESS_LIST, ATLAS_BUSINESSES } from './data';
+import { AtlasAPI } from './api';
 
 // Atlas — Dashboard shell + sidebar + topbar
 
@@ -86,9 +87,11 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit }) => {
   );
 };
 
-export const TopBar = ({ title, business, onSwitch, query, setQuery, onAsk }) => {
+export const TopBar = ({ title, business, user, onSwitch, query, setQuery, onAsk }) => {
   const [open, setOpen] = React.useState(false);
   const [askOpen, setAskOpen] = React.useState(false);
+  const userName = user?.name || business.owner || 'Owner';
+  const initials = userName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'AT';
   return (
     <div style={{
       height: 56, padding: '0 24px',
@@ -119,8 +122,8 @@ export const TopBar = ({ title, business, onSwitch, query, setQuery, onAsk }) =>
           background: 'var(--bg-elevated)', border: '1px solid var(--border)',
           borderRadius: 999, cursor: 'pointer', position: 'relative',
         }}>
-          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #d6d3d1, #78716c)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600 }}>EM</div>
-          <span style={{ fontSize: 12, fontWeight: 500 }}>Emma</span>
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #d6d3d1, #78716c)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600 }}>{initials}</div>
+          <span style={{ fontSize: 12, fontWeight: 500 }}>{userName}</span>
           <Icon name="chevron-down" size={12} color="var(--ink-3)"/>
         </button>
       </div>

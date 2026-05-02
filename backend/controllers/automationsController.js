@@ -51,7 +51,7 @@ const deleteAutomation = asyncHandler(async (req, res) => {
 });
 
 const suggestedAutomations = asyncHandler(async (req, res) => {
-  res.json(getSuggestedAutomations(req.params.bizId));
+  res.json(await getSuggestedAutomations(req.params.bizId));
 });
 
 module.exports = {

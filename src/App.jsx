@@ -27,6 +27,7 @@ export default function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [apiBusinesses, setApiBusinesses] = useState([]);
   const [currentBusiness, setCurrentBusiness] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     if (view === 'dashboard') {
@@ -63,23 +64,21 @@ export default function App() {
 
   useEffect(() => {
     import('./api').then(({ AtlasAPI }) => {
-      AtlasAPI.auth.me().then(() => {
-        // If already logged in, go to dashboard
+      AtlasAPI.auth.me().then((user) => {
+        setCurrentUser(user);
         setView('dashboard');
-      }).catch(() => {});
+      }).catch(() => {
+        try {
+          const saved = sessionStorage.getItem('atlas-state');
+          if (saved) {
+            const s = JSON.parse(saved);
+            if (s.view) setView(s.view);
+            if (s.bizId) setBizId(s.bizId);
+            if (s.page) setPage(s.page);
+          }
+        } catch (e) {}
+      });
     });
-  }, []);
-
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('atlas-state');
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.view) setView(s.view);
-        if (s.bizId) setBizId(s.bizId);
-        if (s.page) setPage(s.page);
-      }
-    } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -87,8 +86,8 @@ export default function App() {
   }, [view, bizId, page]);
 
   const handleDemo = (id) => { setBizId(id); setView('dashboard'); setPage('overview'); };
-  const handleLogin = () => setView('dashboard');
-  const handleOnboardComplete = () => { setView('dashboard'); setPage('overview'); };
+  const handleLogin = (user) => { if (user) setCurrentUser(user); setView('dashboard'); };
+  const handleOnboardComplete = (user) => { if (user) setCurrentUser(user); setView('dashboard'); setPage('overview'); };
 
   const PageComponent = {
     overview: Overview,
@@ -132,12 +131,21 @@ export default function App() {
             onChange={setPage}
             business={business}
             onSwitch={() => setShowSwitcher(true)}
-            onExit={() => { import('./api').then(({ AtlasAPI }) => AtlasAPI.auth.logout()); setView('landing'); }}
+            onExit={async () => {
+              try {
+                const { AtlasAPI } = await import('./api');
+                await AtlasAPI.auth.logout();
+              } finally {
+                setCurrentUser(null);
+                setView('landing');
+              }
+            }}
           />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <TopBar
               title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings' })[page]}
               business={business}
+              user={currentUser}
             />
             <div style={{ flex: 1 }}>
               <PageComponent business={business} key={bizId + page}/>

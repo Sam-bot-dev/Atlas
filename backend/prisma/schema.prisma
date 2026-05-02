@@ -131,6 +131,8 @@ model Order {
   business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
   sourceId   String
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, externalId])
 }
 
 model Product {
@@ -167,6 +169,8 @@ model Customer {
   business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
   sourceId   String
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, externalId])
 }
 
 model Review {
@@ -227,6 +231,7 @@ model Metric {
   label  String @default("")
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)

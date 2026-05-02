@@ -105,4 +105,17 @@ const enqueueUploadJob = (jobId) => {
   return queue;
 };
 
-module.exports = { enqueueUploadJob };
+const recoverQueuedUploadJobs = async () => {
+  const jobs = await prisma.uploadJob.findMany({
+    where: { status: { in: ['queued', 'processing'] } },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  for (const job of jobs) {
+    enqueueUploadJob(job.id);
+  }
+
+  return jobs.length;
+};
+
+module.exports = { enqueueUploadJob, recoverQueuedUploadJobs };

@@ -1,6 +1,8 @@
 const fs = require('fs/promises');
+const path = require('path');
 const { parse } = require('csv-parse/sync');
 const pdfParse = require('pdf-parse');
+const readExcelFile = require('read-excel-file/node');
 
 const readCsv = async (filePath) => {
   const text = await fs.readFile(filePath, 'utf8');
@@ -36,6 +38,40 @@ const readJson = async (filePath) => {
   const payload = JSON.parse(text);
   const rows = Array.isArray(payload) ? payload : Array.isArray(payload.rows) ? payload.rows : [];
   return { rawText: text, rows, json: payload };
+};
+
+const readSpreadsheet = async (filePath) => {
+  if (path.extname(filePath).toLowerCase() === '.xls') {
+    const text = await fs.readFile(filePath, 'utf8').catch(() => '');
+    if (!text.trim()) {
+      return {
+        rawText: '',
+        rows: [],
+        warning: 'Legacy .xls binary files are not supported. Export as .xlsx or CSV.',
+      };
+    }
+
+    const rows = parse(text, {
+      columns: true,
+      skip_empty_lines: true,
+      relax_column_count: true,
+      trim: true,
+      delimiter: text.includes('\t') ? '\t' : ',',
+    });
+    return { rawText: text, rows };
+  }
+
+  const sheetRows = await readExcelFile(filePath);
+  const headers = (sheetRows[0] || []).map((value, index) => String(value || `column_${index + 1}`));
+  const rows = sheetRows.slice(1).map((values) => {
+    const record = {};
+    headers.forEach((header, index) => {
+      record[header] = values[index] ?? '';
+    });
+    return record;
+  });
+  const rawText = rows.map((row) => JSON.stringify(row)).join('\n');
+  return { rawText, rows, json: { rows } };
 };
 
 const readImageWithVision = async (filePath) => {
@@ -78,6 +114,7 @@ const extractRawContent = async (job) => {
   if (job.detectedType === 'image') return readImageWithVision(job.storagePath);
   if (job.detectedType === 'json') return readJson(job.storagePath);
   if (job.detectedType === 'text') return readText(job.storagePath);
+  if (job.detectedType === 'spreadsheet') return readSpreadsheet(job.storagePath);
 
   return {
     rawText: '',

@@ -3,9 +3,12 @@ const { calculateMetrics, saveMetrics } = require('../../services/metricService'
 const { generateInsights } = require('../../services/insightService');
 const { generateActions } = require('../../services/actionService');
 const { detectAnomalies } = require('../../services/mlService');
+const { evaluateAutomations } = require('../../services/automationService');
 
 const asJson = (value) => JSON.stringify(value || {});
 const dateOrNull = (value) => (value ? new Date(value) : null);
+const fingerprint = (row) =>
+  Buffer.from(JSON.stringify(row)).toString('base64url').slice(0, 80);
 
 const createRows = async (model, rows, mapper) => {
   if (!rows.length) return 0;
@@ -15,13 +18,26 @@ const createRows = async (model, rows, mapper) => {
   return rows.length;
 };
 
+const createUniqueRows = async (model, rows, mapper) => {
+  let count = 0;
+  for (const row of rows) {
+    try {
+      await prisma[model].create({ data: mapper(row) });
+      count += 1;
+    } catch (error) {
+      if (error.code !== 'P2002') throw error;
+    }
+  }
+  return count;
+};
 
 
 const normalizeExtraction = async ({ businessId, sourceId, extraction }) => {
   const counts = {};
 
-  counts.orders = await createRows('order', extraction.orders, (row) => ({
+  counts.orders = await createUniqueRows('order', extraction.orders, (row) => ({
     ...row,
+    externalId: row.externalId || fingerprint(row),
     orderDate: dateOrNull(row.orderDate),
     rawPayload: asJson(row),
     businessId,
@@ -35,8 +51,9 @@ const normalizeExtraction = async ({ businessId, sourceId, extraction }) => {
     sourceId,
   }));
 
-  counts.customers = await createRows('customer', extraction.customers, (row) => ({
+  counts.customers = await createUniqueRows('customer', extraction.customers, (row) => ({
     ...row,
+    externalId: row.externalId || fingerprint(row),
     ordersCount: Math.round(row.ordersCount || 0),
     rawPayload: asJson(row),
     businessId,
@@ -71,7 +88,7 @@ const normalizeExtraction = async ({ businessId, sourceId, extraction }) => {
 
   const insights = await generateInsights(businessId, metrics);
   await generateActions(businessId, metrics, insights);
-  await detectAnomalies(businessId);
+  await detectAnomalies(businessId, evaluateAutomations);
 
   return counts;
 };

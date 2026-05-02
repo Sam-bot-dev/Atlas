@@ -10,8 +10,8 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      await AtlasAPI.auth.login(email, password);
-      onLogin();
+      const user = await AtlasAPI.auth.login(email, password);
+      onLogin(user);
     } catch (e) {
       alert('Login failed: ' + e.message);
     } finally {
@@ -110,9 +110,9 @@ export const Onboarding = ({ onComplete, onBack }) => {
       setDetecting(true);
       try {
         const email = bizName.replace(/\s+/g, '').toLowerCase() + '@example.com';
-        await AtlasAPI.auth.signup({ email, password: 'password123', name: bizName });
+        const user = await AtlasAPI.auth.signup({ email, password: 'password123', name: bizName });
         await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr });
-        onComplete();
+        onComplete(user);
       } catch (e) {
         alert('Setup failed: ' + e.message);
       } finally {

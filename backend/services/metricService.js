@@ -72,7 +72,7 @@ async function calculateRevenueTrend(businessId) {
 
   const current = currentPeriod._sum.total || 0;
   const previous = previousPeriod._sum.total || 0;
-  const delta = previous > 0 ? ((current - previous) / previous) * 100 : 0;
+  const delta = previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
 
   return {
     value: Math.round(current),
@@ -143,8 +143,8 @@ async function calculateConversionRate(businessId) {
     }),
   ]);
 
-  const visitors = totalVisitors._sum.visitors || 1;
-  const conversionRate = (totalOrders / visitors) * 100;
+  const visitors = totalVisitors._sum.visitors || 0;
+  const conversionRate = visitors > 0 ? (totalOrders / visitors) * 100 : 0;
 
   return {
     value: Math.round(conversionRate * 100) / 100,
@@ -159,22 +159,9 @@ async function calculateConversionRate(businessId) {
  * Inventory Health: % of items in stock vs low stock
  */
 async function calculateInventoryHealth(businessId) {
-  const [inStock, lowStock] = await Promise.all([
-    prisma.inventoryItem.count({
-      where: {
-        businessId,
-        quantityOnHand: { gt: 0 },
-      },
-    }),
-    prisma.inventoryItem.count({
-      where: {
-        businessId,
-        quantityOnHand: { lte: 0 },
-      },
-    }),
-  ]);
-
-  const total = inStock + lowStock || 1;
+  const items = await prisma.inventoryItem.findMany({ where: { businessId } });
+  const total = items.length || 1;
+  const inStock = items.filter((item) => item.quantityOnHand > item.reorderPoint).length;
   const health = (inStock / total) * 100;
 
   return {
@@ -291,7 +278,9 @@ async function saveMetrics(businessId, metrics) {
       update: {
         value: metric.value,
         delta: metric.delta,
-        updatedAt: new Date(),
+        unit: metric.unit,
+        period: metric.period,
+        label: metric.label,
       },
     });
   }

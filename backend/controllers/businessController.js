@@ -5,7 +5,7 @@ const { prisma } = require('../lib/prisma');
 // @route   POST /api/v1/businesses
 // @access  Private
 const registerBusiness = asyncHandler(async (req, res) => {
-  const { name, category, placeId, address, goals } = req.body;
+  const { name, category, placeId, address, goals, type, location } = req.body;
 
   if (!name || !category) {
     res.status(400);
@@ -16,6 +16,10 @@ const registerBusiness = asyncHandler(async (req, res) => {
     data: {
       name,
       category,
+      type: type || category || '',
+      location: location || address || '',
+      owner: req.user.name || '',
+      initials: name.slice(0, 2).toUpperCase(),
       placeId: placeId || '',
       address: address || '',
       goals: goals ? JSON.stringify(goals) : '[]',
@@ -48,6 +52,10 @@ const getBusinesses = asyncHandler(async (req, res) => {
       id: b.id,
       name: b.name,
       category: b.category,
+      type: b.type,
+      location: b.location,
+      owner: b.owner,
+      initials: b.initials,
       placeId: b.placeId,
       address: b.address,
       goals: JSON.parse(b.goals),
@@ -117,13 +125,18 @@ const updateBusiness = asyncHandler(async (req, res) => {
     throw new Error('Business not found');
   }
 
-  const { name, category, placeId, address, goals } = req.body;
+  const { name, category, placeId, address, goals, type, location, owner, initials, color } = req.body;
 
   const updated = await prisma.business.update({
     where: { id: req.params.id },
     data: {
       ...(name !== undefined && { name }),
       ...(category !== undefined && { category }),
+      ...(type !== undefined && { type }),
+      ...(location !== undefined && { location }),
+      ...(owner !== undefined && { owner }),
+      ...(initials !== undefined && { initials }),
+      ...(color !== undefined && { color }),
       ...(placeId !== undefined && { placeId }),
       ...(address !== undefined && { address }),
       ...(goals !== undefined && { goals: JSON.stringify(goals) }),
@@ -134,8 +147,35 @@ const updateBusiness = asyncHandler(async (req, res) => {
     id: updated.id,
     name: updated.name,
     category: updated.category,
+    type: updated.type,
+    location: updated.location,
+    owner: updated.owner,
+    initials: updated.initials,
+    color: updated.color,
     address: updated.address,
     goals: JSON.parse(updated.goals),
+  });
+});
+
+const detectBusiness = asyncHandler(async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  const address = String(req.body.address || '').trim();
+  const text = `${name} ${address}`.toLowerCase();
+
+  let category = 'Service Business';
+  if (/baker|bakery|cake|bread/.test(text)) category = 'Home Baker';
+  if (/cafe|coffee|tea/.test(text)) category = 'Cafe';
+  if (/pharmacy|chemist|medical/.test(text)) category = 'Pharmacy';
+  if (/retail|store|shop|mart/.test(text)) category = 'Retail Shop';
+  if (/import|export|logistics|freight/.test(text)) category = 'Import/Export';
+
+  res.json({
+    name,
+    address,
+    category,
+    type: category,
+    location: address,
+    confidence: name ? 0.72 : 0.4,
   });
 });
 
@@ -163,4 +203,5 @@ module.exports = {
   getBusiness,
   updateBusiness,
   deleteBusiness,
+  detectBusiness,
 };

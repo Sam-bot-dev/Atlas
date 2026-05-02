@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
 const { forecastRevenue } = require('../services/mlService');
+const { calculatePeakHours } = require('../services/metricService');
 
 // @desc    Get all metrics for a business
 // @route   GET /api/v1/businesses/:bizId/metrics
@@ -95,8 +96,45 @@ const getForecast = asyncHandler(async (req, res) => {
   res.json(forecast);
 });
 
+const getMetricSeries = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+
+  if (!business) {
+    res.status(404);
+    throw new Error('Business not found');
+  }
+
+  const key = `${req.params.metric}Series`;
+  let series = [];
+  try {
+    series = JSON.parse(business[key] || '[]');
+  } catch {
+    series = [];
+  }
+
+  res.json({ metric: req.params.metric, period: req.query.period || '6M', series });
+});
+
+const getPeakHours = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+
+  if (!business) {
+    res.status(404);
+    throw new Error('Business not found');
+  }
+
+  const matrix = await calculatePeakHours(req.params.bizId);
+  res.json({ matrix });
+});
+
 module.exports = {
   getMetrics,
   upsertMetric,
   getForecast,
+  getMetricSeries,
+  getPeakHours,
 };

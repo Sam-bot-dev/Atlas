@@ -71,7 +71,30 @@ const createInsight = asyncHandler(async (req, res) => {
   });
 });
 
+const explainInsight = asyncHandler(async (req, res) => {
+  const insight = await prisma.insight.findFirst({
+    where: {
+      id: req.params.insightId,
+      businessId: req.params.bizId,
+      business: { userId: req.user.id },
+    },
+  });
+
+  if (!insight) {
+    res.status(404);
+    throw new Error('Insight not found');
+  }
+
+  const evidence = JSON.parse(insight.evidence || '[]');
+  res.json({
+    id: insight.id,
+    answer: `${insight.title}: ${insight.body}`,
+    evidence,
+  });
+});
+
 module.exports = {
   getInsights,
   createInsight,
+  explainInsight,
 };

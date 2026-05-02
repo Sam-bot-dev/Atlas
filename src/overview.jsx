@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon, Delta, severityStyle, fmtINR } from './ui';
 import { LineChart, DonutChart, HeatmapChart } from './charts';
+import { AtlasAPI } from './api';
 
 // Atlas — Overview page (the signature moment)
 // What is happening / Why it is happening / What to do next
@@ -39,7 +40,7 @@ const InsightCard = ({ insight }) => {
       <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>{insight.body}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-subtle)', marginTop: 'auto' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {insight.evidence.map((e, i) => (
+          {(insight.evidence || []).map((e, i) => (
             <span key={i} className="badge" style={{ fontSize: 10 }}>{e}</span>
           ))}
         </div>
@@ -52,7 +53,9 @@ const InsightCard = ({ insight }) => {
 };
 
 const ActionCard = ({ action, onApply, applied }) => {
-  const conf = action.confidence;
+  const conf = typeof action.confidence === 'number'
+    ? action.confidence
+    : ({ High: 90, Medium: 70, Low: 50 }[action.confidence] || 60);
   const confColor = conf >= 85 ? 'var(--positive)' : conf >= 70 ? 'var(--warning)' : 'var(--ink-3)';
   return (
     <div className="card" style={{
@@ -111,8 +114,6 @@ const ActionCard = ({ action, onApply, applied }) => {
   );
 };
 
-import { AtlasAPI } from './api';
-
 export const Overview = ({ business }) => {
   const [appliedActions, setAppliedActions] = React.useState({});
   const [period, setPeriod] = React.useState('1M');
@@ -128,8 +129,12 @@ export const Overview = ({ business }) => {
     }
   };
 
-  const metrics = business.metrics;
   const metricKeys = ['revenue', 'orders', 'conversion', 'inventory', 'retention', 'sentiment'];
+  const fallbackMetric = { value: 0, delta: 0, label: 'No data', unit: '', period: '' };
+  const metrics = metricKeys.reduce((acc, key) => ({ ...acc, [key]: business.metrics?.[key] || fallbackMetric }), {});
+  const spendingMix = business.spendingMix || [];
+  const insights = business.insights || [];
+  const actions = business.actions || [];
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -194,10 +199,10 @@ export const Overview = ({ business }) => {
           <div className="card" style={{ padding: 18 }}>
             <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Spending mix</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500 }}>{fmtINR(business.spendingMix.reduce((s, d) => s + d.value, 0))}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500 }}>{fmtINR(spendingMix.reduce((s, d) => s + d.value, 0))}</span>
               <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>this period</span>
             </div>
-            <DonutChart data={business.spendingMix} size={140} thickness={18}/>
+            <DonutChart data={spendingMix} size={140} thickness={18}/>
           </div>
         </div>
 
@@ -233,7 +238,7 @@ export const Overview = ({ business }) => {
           <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>· Atlas connected the dots across {Object.keys(business.metrics).length} signals</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {business.insights.map((ins, i) => <InsightCard key={i} insight={ins}/>)}
+          {insights.map((ins, i) => <InsightCard key={i} insight={ins}/>)}
         </div>
       </div>
 
@@ -245,7 +250,7 @@ export const Overview = ({ business }) => {
           <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>· Ranked by projected impact and your goals</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {business.actions.map((a, i) => <ActionCard key={i} action={a} onApply={() => apply(a.id, i)} applied={appliedActions[i]}/>)}
+          {actions.map((a, i) => <ActionCard key={i} action={a} onApply={() => apply(a.id, i)} applied={appliedActions[i]}/>)}
         </div>
       </div>
     </div>

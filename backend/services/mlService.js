@@ -61,7 +61,7 @@ async function forecastRevenue(businessId, daysAhead = 7) {
 /**
  * Detect Anomalies in recent data using Z-Score analysis
  */
-async function detectAnomalies(businessId) {
+async function detectAnomalies(businessId, evaluateAutomations) {
   const anomalies = [];
 
   const orders = await prisma.order.findMany({
@@ -119,9 +119,9 @@ async function detectAnomalies(businessId) {
       }
     });
 
-    // Also trigger Automation evaluation logic specifically for anomalies!
-    const { evaluateAutomations } = require('./automationService');
-    await evaluateAutomations(businessId, anomaly.type, anomaly);
+    if (evaluateAutomations) {
+      await evaluateAutomations(businessId, anomaly.type, anomaly);
+    }
   }
 
   return anomalies;

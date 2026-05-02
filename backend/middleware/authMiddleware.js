@@ -5,6 +5,11 @@ const { prisma } = require('../lib/prisma');
 const protect = asyncHandler(async (req, res, next) => {
   let token;
 
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    res.status(500);
+    throw new Error('JWT_SECRET is not configured');
+  }
+
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')

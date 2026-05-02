@@ -48,11 +48,25 @@ async function createAutomation({ businessId, trigger, actionType, payload }) {
   });
 }
 
-function getSuggestedAutomations(businessId) {
-  return [
+async function getSuggestedAutomations(businessId) {
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { category: true, type: true },
+  });
+  const type = `${business?.type || business?.category || ''}`.toLowerCase();
+  const suggestions = [
     { trigger: 'inventory_low', action: 'email_alert', title: 'Email on low stock' },
     { trigger: 'negative_review', action: 'create_task', title: 'Task to review bad feedback' },
   ];
+
+  if (/cafe|baker|retail|pharmacy/.test(type)) {
+    suggestions.push({ trigger: 'revenue_drop', action: 'create_task', title: 'Task on revenue drop' });
+  }
+  if (/import|export|service/.test(type)) {
+    suggestions.push({ trigger: 'revenue_spike', action: 'email_alert', title: 'Email when revenue spikes' });
+  }
+
+  return suggestions;
 }
 
 module.exports = {

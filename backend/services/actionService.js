@@ -196,8 +196,9 @@ function generateAdvancedActions(context) {
       else acc.push({ name: order.productName, count: 1 });
       return acc;
     }, [])
-    .sort((a, b) => b.count - a.count)
-    .slice(5); // slow movers are outside top 5
+    .sort((a, b) => a.count - b.count)
+    .slice(0, 5)
+    .filter((item) => item.name);
 
   if (topMovers.length > 0) {
     actions.push({
@@ -294,14 +295,9 @@ function prioritizeActions(actions, context) {
  * Save actions to database
  */
 async function saveActions(businessId, actions) {
-  // Delete old actions (keep only recent ones)
+  // Keep one current recommendation set per business.
   await prisma.action.deleteMany({
-    where: {
-      businessId,
-      createdAt: {
-        lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // older than 24 hours
-      },
-    },
+    where: { businessId },
   });
 
   // Save new actions

@@ -1,7 +1,7 @@
 // Atlas — API client
 // All endpoints stubbed. Swap API_BASE and getToken() for real backend.
 
-const API_BASE = '/api/v1';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
 const getToken = () => {
   try { return sessionStorage.getItem('atlas-token') || ''; } catch { return ''; }
@@ -53,10 +53,10 @@ const AtlasAPI = {
   auth: {
     login: (email, password) =>
       post('/auth/login', { email, password }).then(r => { setToken(r.token); return r; }),
-    loginWithGoogle: () => { window.location.href = API_BASE + '/auth/google'; },
+    loginWithGoogle: () => Promise.reject(new Error('Google login is not configured yet. Use email login.')),
     signup: ({ email, password, name }) =>
       post('/auth/signup', { email, password, name }).then(r => { setToken(r.token); return r; }),
-    logout: () => post('/auth/logout', {}).then(() => clearToken()),
+    logout: () => post('/auth/logout', {}).finally(() => clearToken()),
     me: () => get('/auth/me'),
   },
   businesses: {
