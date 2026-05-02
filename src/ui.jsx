@@ -138,4 +138,24 @@ const SectionHeader = ({ eyebrow, title, subtitle, action }) => (
   </div>
 );
 
-export { Icon, AtlasLogo, Delta, BizAvatar, fmtINR, fmtCurrency, fmtNumber, SectionHeader, severityStyle };
+const SkeletonLine = ({ width = '100%', height = 12 }) => (
+  <div style={{
+    width,
+    height,
+    background: 'var(--bg-subtle)',
+    borderRadius: 4,
+    animation: 'pulse 1.5s ease-in-out infinite',
+  }}/>
+);
+
+const SkeletonCircle = ({ size = 32 }) => (
+  <div style={{
+    width: size,
+    height: size,
+    borderRadius: '50%',
+    background: 'var(--bg-subtle)',
+    animation: 'pulse 1.5s ease-in-out infinite',
+  }}/>
+);
+
+export { Icon, AtlasLogo, Delta, BizAvatar, fmtINR, fmtCurrency, fmtNumber, SectionHeader, severityStyle, SkeletonLine, SkeletonCircle };
