@@ -166,7 +166,7 @@ export const Overview = ({ business: initialBusiness }) => {
     // Peak hours / charts
     setLoadingCharts(true);
     AtlasAPI.metrics.peakHours(initialBusiness.id)
-      .then(res => { if (active && res && res.length > 0) setPeakHours(res); })
+      .then(res => { if (active && res?.matrix?.length > 0) setPeakHours(res.matrix); })
       .catch(console.error)
       .finally(() => { if (active) setLoadingCharts(false); });
 

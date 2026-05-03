@@ -48,7 +48,7 @@ export const Landing = ({ onDemo, onLogin, onSignup, onNavigate = () => {} }) =>
           </button>
         </div>
         <div style={{ marginTop: 18, fontSize: 12, color: 'var(--ink-3)' }}>
-          No signup needed for demos · Connect real data in 2 minutes
+          No signup needed for demos · <span style={{ fontFamily: 'mono', background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>demo@atlas.ai / atlas123</span> · Connect real data in 2 minutes
         </div>
       </div>
 

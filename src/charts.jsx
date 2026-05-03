@@ -17,18 +17,25 @@ const useMeasure = () => {
 };
 
 const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yKey = 'v', showAxis = true, fill = true }) => {
+  if (!data || data.length === 0) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 12 }}>No data</div>;
+
   const [ref, { w }] = useMeasure();
   const padL = 36, padR = 12, padT = 12, padB = showAxis ? 22 : 8;
   const innerW = Math.max(0, w - padL - padR);
   const innerH = height - padT - padB;
-  const ys = data.map(d => d[yKey]);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const range = maxY - minY || 1;
+  const ys = data.map(d => d[yKey]).filter(Boolean);
+  if (ys.length === 0) {
+    const minY = 0, maxY = 1;
+    const range = 1;
+  } else {
+    const minY = Math.min(...ys, 0);
+    const maxY = Math.max(...ys);
+    const range = maxY - minY || 1;
+  }
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
   const points = data.map((d, i) => ({
     x: padL + i * stepX,
-    y: padT + innerH - ((d[yKey] - minY) / range) * innerH,
+    y: padT + innerH - ((d[yKey] || 0 - minY) / range) * innerH,
   }));
   const path = points.map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`)).join(' ');
   const area = path + ` L${padL + innerW},${padT + innerH} L${padL},${padT + innerH} Z`;
@@ -119,13 +126,17 @@ const BarChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'd', yKe
 };
 
 const DonutChart = ({ data, size = 180, thickness = 22 }) => {
-  const total = data.reduce((s, d) => s + d.value, 0);
+  if (!data || data.length === 0) return <div style={{ height: size, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 12, textAlign: 'center' }}>No spending data</div>;
+
+  const total = data.reduce((s, d) => s + (d.value || 0), 0);
+  if (total === 0) return <div style={{ height: size, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 12 }}>No spending data</div>;
+
   const r = (size - thickness) / 2;
   const cx = size / 2, cy = size / 2;
   let acc = 0;
   const segs = data.map(d => {
     const startA = (acc / total) * Math.PI * 2 - Math.PI / 2;
-    acc += d.value;
+    acc += d.value || 0;
     const endA = (acc / total) * Math.PI * 2 - Math.PI / 2;
     const large = (endA - startA) > Math.PI ? 1 : 0;
     const x1 = cx + r * Math.cos(startA);
@@ -136,7 +147,7 @@ const DonutChart = ({ data, size = 180, thickness = 22 }) => {
       d: `M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2}`,
       color: d.color,
       label: d.label,
-      value: d.value,
+      value: d.value || 0,
     };
   });
   return (
@@ -155,13 +166,13 @@ const DonutChart = ({ data, size = 180, thickness = 22 }) => {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 160 }}>
         {data.map((d, i) => {
-          const pct = ((d.value / total) * 100).toFixed(0);
+          const pct = total > 0 ? ((d.value || 0 / total) * 100).toFixed(0) : 0;
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 }}/>
               <span style={{ flex: 1, color: 'var(--ink-2)' }}>{d.label}</span>
               <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>{pct}%</span>
-              <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', minWidth: 60, textAlign: 'right' }}>{fmtINR(d.value)}</span>
+              <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', minWidth: 60, textAlign: 'right' }}>{fmtINR(d.value || 0)}</span>
             </div>
           );
         })}

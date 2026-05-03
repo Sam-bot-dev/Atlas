@@ -1,22 +1,16 @@
 const express = require('express');
-const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 const {
-  registerBusiness,
   getBusinesses,
+  createBusiness,
   getBusiness,
   updateBusiness,
-  deleteBusiness,
-  detectBusiness,
 } = require('../controllers/businessController');
-const { protect } = require('../middleware/authMiddleware');
 
-router.route('/').post(protect, registerBusiness).get(protect, getBusinesses);
-router.route('/detect').post(protect, detectBusiness);
-router
-  .route('/:id')
-  .get(protect, getBusiness)
-  .put(protect, updateBusiness)
-  .patch(protect, updateBusiness)
-  .delete(protect, deleteBusiness);
+const router = express.Router();
+
+router.route('/').get(protect, getBusinesses).post(protect, createBusiness);
+router.route('/:id').get(protect, getBusiness).patch(protect, updateBusiness);
 
 module.exports = router;
+

@@ -115,6 +115,13 @@ const recoverQueuedUploadJobs = async () => {
   });
 
   for (const job of jobs) {
+    if (job.status === 'processing') {
+      // Reset processing jobs to queued and clear stage
+      await prisma.uploadJob.update({
+        where: { id: job.id },
+        data: { status: 'queued', stage: null },
+      });
+    }
     enqueueUploadJob(job.id);
   }
 

@@ -51,8 +51,8 @@ const seed = async () => {
         { title: 'Maida and butter costs up 18% since February', body: 'Input costs rose after commodity price hike. Eggless cake margin dropped from 42% to 34%.', severity: 'warning', evidence: JSON.stringify(['COGS log', 'Supplier invoices']) },
       ],
       actions: [
-        { title: 'Launch Diwali pre-booking on WhatsApp in July', body: 'Message your repeat customers with a ₹500 advance deposit option.', impact: '+₹52,000', effort: 'Low', confidence: '88%', urgent: false },
-        { title: 'Reorder maida and sugar by Thursday', body: 'At current bake rate you will run short before Saturday rush.', impact: 'Avoid stockout', effort: 'Low', confidence: '96%', urgent: true },
+        { title: 'Launch Diwali pre-booking on WhatsApp in July', body: 'Message your repeat customers with a ₹500 advance deposit option.', impact: 'High', effort: 'Low', confidence: 'High', urgent: false },
+        { title: 'Reorder maida and sugar by Thursday', body: 'At current bake rate you will run short before Saturday rush.', impact: 'High', effort: 'Low', confidence: 'High', urgent: true },
       ]
     },
     {
@@ -198,10 +198,11 @@ const seed = async () => {
     
     const biz = await prisma.business.upsert({
       where: { id: bizFields.id },
-      update: bizFields,
+      update: { ...bizFields, isDemo: true },
       create: {
         ...bizFields,
-        userId: user.id
+        userId: user.id,
+        isDemo: true
       }
     });
 

@@ -557,5 +557,7 @@ const BUSINESS_LIST = [
   { id: 'cafe',     name: 'Cafe',            desc: 'Chai, filter coffee & snacks, Bengaluru',icon: 'cafe'   },
 ];
 
-export const ATLAS_BUSINESSES = BUSINESSES;
-export const ATLAS_BUSINESS_LIST = BUSINESS_LIST;
+export const ATLAS_BUSINESSES = Object.fromEntries(
+  Object.entries(BUSINESSES).map(([id, biz]) => [id, { ...biz, isDemo: true }])
+);
+export const ATLAS_BUSINESS_LIST = BUSINESS_LIST.map(b => ({ ...b, isDemo: true })); 

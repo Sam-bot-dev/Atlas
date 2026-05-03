@@ -62,6 +62,17 @@ const AtlasAPI = {
       setToken(data.token);
       return data;
     },
+    demoLogin: async () => {
+      const res = await fetch(API_BASE + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'demo@atlas.ai', password: 'atlas123' })
+      });
+      if (!res.ok) throw new Error('Demo login failed');
+      const data = await res.json();
+      setToken(data.token);
+      return data;
+    },
     login: async (email, password) => {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       const { auth } = await import('./firebase');

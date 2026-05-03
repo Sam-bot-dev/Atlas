@@ -126,8 +126,9 @@ async function calculateOrderVolume(businessId) {
 async function calculateConversionRate(businessId) {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-  const [totalOrders, totalVisitors] = await Promise.all([
+  const [currentOrders, currentVisitors, prevOrders, prevVisitors] = await Promise.all([
     prisma.order.count({
       where: {
         businessId,
@@ -141,15 +142,31 @@ async function calculateConversionRate(businessId) {
       },
       _sum: { visitors: true },
     }),
+    prisma.order.count({
+      where: {
+        businessId,
+        orderDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+      },
+    }),
+    prisma.trafficPoint.aggregate({
+      where: {
+        businessId,
+        occurredAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+      },
+      _sum: { visitors: true },
+    }),
   ]);
 
-  const visitors = totalVisitors._sum.visitors || 0;
-  const conversionRate = visitors > 0 ? (totalOrders / visitors) * 100 : 0;
+  const currentVisitorsCount = currentVisitors._sum.visitors || 0;
+  const prevVisitorsCount = prevVisitors._sum.visitors || 0;
+  const currentRate = currentVisitorsCount > 0 ? (currentOrders / currentVisitorsCount) * 100 : 0;
+  const prevRate = prevVisitorsCount > 0 ? (prevOrders / prevVisitorsCount) * 100 : 0;
+  const delta = prevRate > 0 ? ((currentRate - prevRate) / prevRate) * 100 : 0;
 
   return {
-    value: Math.round(conversionRate * 100) / 100,
-    delta: 0,
-    label: `${conversionRate.toFixed(2)}%`,
+    value: Math.round(currentRate * 100) / 100,
+    delta: Math.round(delta * 100) / 100,
+    label: `${currentRate.toFixed(2)}%`,
     unit: '%',
     period: 'last 30 days',
   };
@@ -159,17 +176,36 @@ async function calculateConversionRate(businessId) {
  * Inventory Health: % of items in stock vs low stock
  */
 async function calculateInventoryHealth(businessId) {
-  const items = await prisma.inventoryItem.findMany({ where: { businessId } });
-  const total = items.length || 1;
-  const inStock = items.filter((item) => item.quantityOnHand > item.reorderPoint).length;
-  const health = (inStock / total) * 100;
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+  const [currentItems, prevItems] = await Promise.all([
+    prisma.inventoryItem.findMany({ where: { businessId } }),
+    prisma.inventoryItem.findMany({ 
+      where: { 
+        businessId, 
+        createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo }
+      } 
+    }),
+  ]);
+
+  const currentTotal = currentItems.length || 1;
+  const currentInStock = currentItems.filter((item) => item.quantityOnHand > item.reorderPoint).length;
+  const currentHealth = (currentInStock / currentTotal) * 100;
+
+  const prevTotal = prevItems.length || 1;
+  const prevInStock = prevItems.filter((item) => item.quantityOnHand > item.reorderPoint).length;
+  const prevHealth = prevTotal > 0 ? (prevInStock / prevTotal) * 100 : 0;
+
+  const delta = prevHealth > 0 ? ((currentHealth - prevHealth) / prevHealth) * 100 : 0;
 
   return {
-    value: Math.round(health),
-    delta: 0,
-    label: `${Math.round(health)}% in stock`,
+    value: Math.round(currentHealth),
+    delta: Math.round(delta * 100) / 100,
+    label: `${Math.round(currentHealth)}% in stock`,
     unit: '%',
-    period: 'current',
+    period: 'vs last 30 days',
   };
 }
 
@@ -177,20 +213,36 @@ async function calculateInventoryHealth(businessId) {
  * Customer Retention: repeat customers / total customers
  */
 async function calculateRetention(businessId) {
-  const allCustomers = await prisma.customer.findMany({
-    where: { businessId },
-  });
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-  const repeatCustomers = allCustomers.filter((c) => c.ordersCount > 1).length;
-  const totalCustomers = allCustomers.length || 1;
-  const retention = (repeatCustomers / totalCustomers) * 100;
+  const [currentCustomers, prevCustomers] = await Promise.all([
+    prisma.customer.findMany({ where: { businessId } }),
+    prisma.customer.findMany({ 
+      where: { 
+        businessId, 
+        createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo }
+      } 
+    }),
+  ]);
+
+  const currentRepeat = currentCustomers.filter((c) => c.ordersCount > 1).length;
+  const currentTotal = currentCustomers.length || 1;
+  const currentRetention = (currentRepeat / currentTotal) * 100;
+
+  const prevRepeat = prevCustomers.filter((c) => c.ordersCount > 1).length;
+  const prevTotal = prevCustomers.length || 1;
+  const prevRetention = (prevRepeat / prevTotal) * 100;
+
+  const delta = prevRetention > 0 ? ((currentRetention - prevRetention) / prevRetention) * 100 : 0;
 
   return {
-    value: Math.round(retention),
-    delta: 0,
-    label: `${Math.round(retention)}% repeat`,
+    value: Math.round(currentRetention),
+    delta: Math.round(delta * 100) / 100,
+    label: `${Math.round(currentRetention)}% repeat`,
     unit: '%',
-    period: 'all time',
+    period: 'vs last 30 days',
   };
 }
 
@@ -198,19 +250,34 @@ async function calculateRetention(businessId) {
  * Review Sentiment: Average rating from reviews
  */
 async function calculateSentiment(businessId) {
-  const result = await prisma.review.aggregate({
-    where: { businessId },
-    _avg: { rating: true },
-  });
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-  const avgRating = result._avg.rating || 0;
+  const [currentResult, prevResult] = await Promise.all([
+    prisma.review.aggregate({
+      where: { businessId },
+      _avg: { rating: true },
+    }),
+    prisma.review.aggregate({
+      where: {
+        businessId,
+        createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+      },
+      _avg: { rating: true },
+    }),
+  ]);
+
+  const currentAvg = currentResult._avg.rating || 0;
+  const prevAvg = prevResult._avg.rating || 0;
+  const delta = prevAvg > 0 ? ((currentAvg - prevAvg) / prevAvg) * 100 : 0;
 
   return {
-    value: Math.round(avgRating * 10) / 10,
-    delta: 0,
-    label: `${avgRating.toFixed(1)}/5`,
+    value: Math.round(currentAvg * 10) / 10,
+    delta: Math.round(delta * 100) / 100,
+    label: `${currentAvg.toFixed(1)}/5`,
     unit: '/5',
-    period: 'from reviews',
+    period: 'vs last 30 days',
   };
 }
 

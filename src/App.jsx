@@ -24,6 +24,7 @@ const TWEAK_DEFAULTS = {
 export default function App() {
   const [view, setView] = useState('landing');
   const [bizId, setBizId] = useState('baker');
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [page, setPage] = useState('overview');
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -65,6 +66,7 @@ export default function App() {
   }, [view, bizId]);
 
   const business = currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker'];
+  const effectiveBusiness = { ...business, isDemo: isDemoMode || (business.isDemo === true) };
 
   useEffect(() => {
     import('./api').then(({ AtlasAPI }) => {
@@ -90,20 +92,10 @@ export default function App() {
   }, [view, bizId, page]);
 
   const handleDemo = async (id) => {
-    import('./api').then(async ({ AtlasAPI }) => {
-      try {
-        const user = await AtlasAPI.auth.login('demo@atlas.ai', 'atlas123');
-        setCurrentUser(user);
-        setBizId(id);
-        setView('dashboard');
-        setPage('overview');
-      } catch (e) {
-        // Fallback if login fails
-        setBizId(id);
-        setView('dashboard');
-        setPage('overview');
-      }
-    });
+    setIsDemoMode(true);
+    setBizId(id);
+    setView('dashboard');
+    setPage('overview');
   };
   const handleLogin = (user) => { if (user) setCurrentUser(user); setView('dashboard'); };
   const handleOnboardComplete = (user) => { if (user) setCurrentUser(user); setView('dashboard'); setPage('overview'); };
@@ -145,10 +137,11 @@ export default function App() {
       {view === 'docs' && <DocsPage onBack={() => setView('landing')} onDemo={handleDemo} onSignup={() => setView('onboarding')} onLogin={() => setView('login')} onNavigate={setView}/>}
       {view === 'dashboard' && (
         <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <Sidebar
+            <Sidebar
             active={page}
             onChange={setPage}
-            business={business}
+            business={effectiveBusiness}
+            isDemo={effectiveBusiness.isDemo}
             onSwitch={() => setShowSwitcher(true)}
             onExit={async () => {
               try {
@@ -156,6 +149,7 @@ export default function App() {
                 await AtlasAPI.auth.logout();
               } finally {
                 setCurrentUser(null);
+                setIsDemoMode(false);
                 setView('landing');
               }
             }}
@@ -183,7 +177,10 @@ export default function App() {
             
             {showChat && <ChatPanel business={business} onClose={() => setShowChat(false)}/>}
           </div>
-          {showSwitcher && <BusinessSwitcher current={business} allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name })), ...ATLAS_BUSINESS_LIST]} allBusinesses={allBusinesses} onSelect={setBizId} onClose={() => setShowSwitcher(false)}/>}
+{showSwitcher && <BusinessSwitcher current={effectiveBusiness} allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name, isDemo: false })), ...ATLAS_BUSINESS_LIST]} allBusinesses={allBusinesses} onSelect={(id) => {
+  setIsDemoMode(ATLAS_BUSINESS_LIST.some(b => b.id === id));
+  setBizId(id);
+}} onClose={() => setShowSwitcher(false)}/>}
         </div>
       )}
 

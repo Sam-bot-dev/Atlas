@@ -17,8 +17,15 @@ const getMetrics = asyncHandler(async (req, res) => {
     throw new Error('Business not found');
   }
 
+  const periodDays = { '1W': 7, '1M': 30, '3M': 90, '6M': 180 }[req.query.period] || 30;
+  const now = new Date();
+  const periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
+
   const metrics = await prisma.metric.findMany({
-    where: { businessId: req.params.bizId },
+    where: { 
+      businessId: req.params.bizId,
+      updatedAt: { gte: periodStart }
+    },
   });
 
   // Transform into the summary shape the frontend expects
@@ -104,6 +111,12 @@ const getMetricSeries = asyncHandler(async (req, res) => {
   if (!business) {
     res.status(404);
     throw new Error('Business not found');
+  }
+
+  const allowedMetrics = ['revenue', 'orders', 'customerGrowth', 'peakHours'];
+  if (!allowedMetrics.includes(req.params.metric)) {
+    res.status(400);
+    throw new Error('Invalid metric');
   }
 
   const key = `${req.params.metric}Series`;

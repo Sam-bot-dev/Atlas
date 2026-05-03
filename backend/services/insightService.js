@@ -323,12 +323,15 @@ function generateFallbackInsights(context) {
  * Save insights to the database
  */
 async function saveInsights(businessId, insights) {
-  // Keep one current reasoning set per business.
+  // Delete only regular insights, preserve anomalies
   await prisma.insight.deleteMany({
-    where: { businessId },
+    where: { 
+      businessId,
+      type: "regular"
+    },
   });
 
-  // Save new insights
+  // Save new regular insights
   for (const insight of insights) {
     await prisma.insight.create({
       data: {
@@ -336,6 +339,7 @@ async function saveInsights(businessId, insights) {
         title: insight.title,
         body: insight.body,
         severity: insight.severity || 'info',
+        type: "regular",
         evidence: JSON.stringify(insight.evidence || []),
       },
     });

@@ -46,7 +46,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // ─── Routes ──────────────────────────────────────────────────────
 app.use('/api/v1/auth', authLimiter, require('./routes/authRoutes'));
-app.use('/api/v1/businesses', require('./routes/businessRoutes'));
+app.use('/api/v1/businesses', require('./middleware/authMiddleware').protect, require('./routes/businessRoutes'));
 
 // Nested business sub-resources
 app.use('/api/v1/businesses/:bizId/metrics', require('./routes/metricsRoutes'));
@@ -63,7 +63,7 @@ app.get('/api/v1/health', (req, res) => {
 
 const frontendDist = path.join(__dirname, '..', 'dist');
 app.use(express.static(frontendDist));
-app.get(/.*/, (req, res, next) => {
+app.get('*path', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(frontendDist, 'index.html'), (error) => {
     if (error) next();

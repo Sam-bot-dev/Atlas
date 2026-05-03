@@ -14,7 +14,7 @@ const SIDEBAR_ITEMS = [
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
-export const Sidebar = ({ active, onChange, business, onSwitch, onExit }) => {
+export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }) => {
   return (
     <aside style={{
       width: 224, flexShrink: 0,
@@ -38,6 +38,7 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit }) => {
           <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{business.name}</div>
             <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{business.type}</div>
+            {isDemo && <span className="badge" style={{ fontSize: 10 }}>Demo</span>}
           </div>
           <Icon name="chevron-down" size={14} color="var(--ink-3)"/>
         </button>

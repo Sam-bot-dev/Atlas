@@ -20,14 +20,22 @@ const getInsights = asyncHandler(async (req, res) => {
   });
 
   res.json(
-    insights.map((i) => ({
-      id: i.id,
-      title: i.title,
-      body: i.body,
-      severity: i.severity,
-      evidence: JSON.parse(i.evidence),
-      createdAt: i.createdAt,
-    }))
+    insights.map((i) => {
+      let evidence = [];
+      try {
+        evidence = JSON.parse(i.evidence);
+      } catch {
+        // fallback empty array
+      }
+      return {
+        id: i.id,
+        title: i.title,
+        body: i.body,
+        severity: i.severity,
+        evidence,
+        createdAt: i.createdAt,
+      };
+    })
   );
 });
 
@@ -66,7 +74,7 @@ const createInsight = asyncHandler(async (req, res) => {
     title: insight.title,
     body: insight.body,
     severity: insight.severity,
-    evidence: JSON.parse(insight.evidence),
+    evidence: JSON.parse(insight.evidence || '[]'),
     createdAt: insight.createdAt,
   });
 });
@@ -85,7 +93,12 @@ const explainInsight = asyncHandler(async (req, res) => {
     throw new Error('Insight not found');
   }
 
-  const evidence = JSON.parse(insight.evidence || '[]');
+  let evidence = [];
+  try {
+    evidence = JSON.parse(insight.evidence || '[]');
+  } catch {
+    // fallback
+  }
   res.json({
     id: insight.id,
     answer: `${insight.title}: ${insight.body}`,

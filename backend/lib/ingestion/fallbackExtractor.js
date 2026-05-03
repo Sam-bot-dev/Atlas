@@ -38,6 +38,7 @@ const fromRows = (rows) => {
     const customerPhone = first(row, ['phone', 'mobile', 'customer phone']);
     const date = first(row, ['date', 'order date', 'invoice date', 'created at']);
 
+    // Orders
     if (orderId || total || (productName && quantity)) {
       output.orders.push({
         externalId: orderId,
@@ -52,7 +53,8 @@ const fromRows = (rows) => {
       });
     }
 
-    if (productName) {
+    // Products
+    if (productName && (quantity || total || stock)) {
       output.products.push({
         sku: first(row, ['sku', 'product id', 'item id']),
         name: productName,
@@ -64,6 +66,7 @@ const fromRows = (rows) => {
       });
     }
 
+    // Customers
     if (customerName || customerPhone || row.email) {
       output.customers.push({
         externalId: first(row, ['customer id', 'client id']),
@@ -76,6 +79,7 @@ const fromRows = (rows) => {
       });
     }
 
+    // Reviews
     if (rating || row.review || row.comment || row.feedback) {
       const body = first(row, ['review', 'comment', 'feedback', 'body']);
       output.reviews.push({
@@ -87,7 +91,8 @@ const fromRows = (rows) => {
       });
     }
 
-    if (stock || row['reorder point'] || row['min stock']) {
+    // Inventory
+    if (stock !== undefined || row['reorder point'] !== undefined || row['min stock'] !== undefined) {
       const reorderPoint = money(first(row, ['reorder point', 'reorder', 'minimum stock', 'min stock']));
       output.inventory.push({
         sku: first(row, ['sku', 'product id', 'item id']),
@@ -98,7 +103,8 @@ const fromRows = (rows) => {
       });
     }
 
-    if (row.visitors || row.traffic || row.conversions) {
+    // Traffic
+    if (row.visitors !== undefined || row.traffic !== undefined || row.conversions !== undefined) {
       output.traffic.push({
         occurredAt: date || null,
         channel: first(row, ['channel', 'source', 'platform']),
