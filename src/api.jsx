@@ -74,7 +74,7 @@ const AtlasAPI = {
       return data;
     },
     login: async (email, password) => {
-      const { signInWithEmailAndPassword } = await import('firebase/auth');
+// const { signInWithEmailAndPassword } = await import('firebase/auth');
       const { auth } = await import('./firebase');
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();

@@ -4,7 +4,7 @@ import { LineChart, BarChart } from './charts';
 import { AtlasAPI } from './api';
 
 // Tabbed dashboard pages
-const AnalyticsTab = ({ business: initialBusiness }) => {
+export const Analytics = ({ business: initialBusiness }) => {
   const safeBusiness = initialBusiness?.id ? initialBusiness : null;
   const [range, setRange] = React.useState('6M');
   const [cat, setCat] = React.useState('All');
@@ -154,7 +154,7 @@ const AnalyticsTab = ({ business: initialBusiness }) => {
   );
 };
 
-const DataSourcesTab = ({ business }) => {
+export const DataSources = ({ business }) => {
   const [dragOver, setDragOver] = React.useState(false);
   const [processing, setProcessing] = React.useState(null);
   const fileInputRef = React.useRef(null);
@@ -211,7 +211,7 @@ const DataSourcesTab = ({ business }) => {
   );
 };
 
-const AutomationsTab = ({ business }) => (
+export const Automations = ({ business }) => (
   <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
     <SectionHeader eyebrow="Autopilot" title="Automations" subtitle="Rules that run automatically." />
     <div className="card" style={{ padding: 18 }}>
@@ -224,7 +224,7 @@ const AutomationsTab = ({ business }) => (
   </div>
 );
 
-const ReportsTab = ({ business }) => (
+export const Reports = ({ business }) => (
   <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
     <SectionHeader title="Reports" subtitle="AI-generated summaries." />
     <div className="card" style={{ padding: 18 }}>
@@ -237,7 +237,7 @@ const ReportsTab = ({ business }) => (
   </div>
 );
 
-const SettingsTab = ({ business }) => (
+export const Settings = ({ business }) => (
   <div style={{ padding: '32px 32px 80px', maxWidth: 760, margin: '0 auto' }}>
     <SectionHeader eyebrow="Workspace" title="Settings" />
     <div className="card" style={{ padding: 24 }}>
