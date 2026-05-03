@@ -1,4 +1,4 @@
-ALTER TABLE "Metric" ADD COLUMN "updatedAt" DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00';
+ALTER TABLE "Metric" ADD COLUMN "updatedAt" DATETIME NOT NULL DEFAULT '2026-05-03 03:12:00';
 
 UPDATE "Order" SET "externalId" = 'legacy-' || "id" WHERE "externalId" = '';
 UPDATE "Customer" SET "externalId" = 'legacy-' || "id" WHERE "externalId" = '';
