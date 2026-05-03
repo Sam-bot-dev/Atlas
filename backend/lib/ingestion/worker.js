@@ -61,17 +61,6 @@ const runUploadJob = async (jobId) => {
     extraction: structured.data,
   });
 
-  // LIVE REGENERATION: Update metrics, insights, and actions immediately
-  try {
-    const metrics = await calculateMetrics(job.businessId);
-    await saveMetrics(job.businessId, metrics);
-    const insights = await generateInsights(job.businessId, metrics);
-    await generateActions(job.businessId, metrics, insights);
-  } catch (regenError) {
-    console.error('Failed to regenerate live insights after ingestion:', regenError);
-    // Don't fail the job if regeneration fails, but log it
-  }
-
   await prisma.dataSource.update({
     where: { id: job.sourceId },
     data: {

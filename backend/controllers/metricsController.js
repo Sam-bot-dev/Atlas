@@ -131,10 +131,150 @@ const getPeakHours = asyncHandler(async (req, res) => {
   res.json({ matrix });
 });
 
+// @desc    Import metrics from Excel file for all businesses
+// @route   POST /api/v1/businesses/:bizId/metrics/import-excel
+// @access  Private
+const importMetricsFromExcel = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+
+  if (!business) {
+    res.status(404);
+    throw new Error('Business not found');
+  }
+
+  if (!req.file) {
+    res.status(400);
+    throw new Error('Excel file is required');
+  }
+
+  const readExcelFile = require('read-excel-file/node');
+  
+  try {
+    // Read the Excel file
+    const rows = await readExcelFile(req.file.path);
+    
+    if (!rows || rows.length < 2) {
+      res.status(400);
+      throw new Error('Excel file must have a header row and at least one data row');
+    }
+
+    const headers = rows[0].map(h => h?.toString().toLowerCase().trim());
+    const updates = [];
+
+    // Process each row (skip header)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row.every(cell => cell === null || cell === undefined)) {
+        const rowData = {};
+        headers.forEach((header, idx) => {
+          if (header) rowData[header] = row[idx];
+        });
+
+        // Update the current business with the data
+        const businessName = rowData['business name'] || rowData['name'];
+        const revenue = parseFloat(rowData['revenue']) || 0;
+        const revenueGrowth = parseFloat(rowData['revenue growth']) || 0;
+        const orders = parseInt(rowData['orders']) || 0;
+        const customers = parseInt(rowData['customers']) || 0;
+        const customerGrowth = parseFloat(rowData['customer growth']) || 0;
+
+        // Update business metrics
+        const updatedBiz = await prisma.business.update({
+          where: { id: req.params.bizId },
+          data: {
+            revenueSeries: JSON.stringify([
+              ...JSON.parse(business.revenueSeries || '[]'),
+              { d: new Date().toISOString().split('T')[0], v: revenue }
+            ].slice(-30)), // Keep last 30 days
+            ordersSeries: JSON.stringify([
+              ...JSON.parse(business.ordersSeries || '[]'),
+              { d: new Date().toISOString().split('T')[0], v: orders }
+            ].slice(-30)),
+            customerGrowth: JSON.stringify([
+              ...JSON.parse(business.customerGrowth || '[]'),
+              { d: new Date().toISOString().split('T')[0], v: customers }
+            ].slice(-30)),
+          },
+        });
+
+        // Update metrics table
+        await Promise.all([
+          prisma.metric.upsert({
+            where: {
+              businessId_key: { businessId: req.params.bizId, key: 'revenue' }
+            },
+            update: { value: revenue, delta: revenueGrowth, unit: '₹', period: 'vs last period' },
+            create: {
+              businessId: req.params.bizId,
+              key: 'revenue',
+              value: revenue,
+              delta: revenueGrowth,
+              unit: '₹',
+              period: 'vs last period',
+              label: 'Revenue'
+            }
+          }),
+          prisma.metric.upsert({
+            where: {
+              businessId_key: { businessId: req.params.bizId, key: 'orders' }
+            },
+            update: { value: orders, unit: '', period: 'this week' },
+            create: {
+              businessId: req.params.bizId,
+              key: 'orders',
+              value: orders,
+              unit: '',
+              period: 'this week',
+              label: 'Orders'
+            }
+          }),
+          prisma.metric.upsert({
+            where: {
+              businessId_key: { businessId: req.params.bizId, key: 'customers' }
+            },
+            update: { value: customers, delta: customerGrowth, unit: '', period: 'total' },
+            create: {
+              businessId: req.params.bizId,
+              key: 'customers',
+              value: customers,
+              delta: customerGrowth,
+              unit: '',
+              period: 'total',
+              label: 'Customers'
+            }
+          })
+        ]);
+
+        updates.push({
+          businessName: business.name,
+          revenue,
+          revenueGrowth,
+          orders,
+          customers,
+          customerGrowth,
+          status: 'updated'
+        });
+      }
+    }
+
+    res.json({
+      message: 'Metrics imported successfully',
+      totalUpdated: updates.length,
+      updates,
+    });
+  } catch (error) {
+    res.status(400);
+    throw new Error(`Failed to import Excel: ${error.message}`);
+  }
+});
+
 module.exports = {
   getMetrics,
   upsertMetric,
   getForecast,
   getMetricSeries,
   getPeakHours,
+  importMetricsFromExcel,
 };
