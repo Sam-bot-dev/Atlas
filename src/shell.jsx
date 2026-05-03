@@ -1,4 +1,4 @@
-import React from 'react';
+`import React from 'react';
 import { BizAvatar, Icon } from './ui';
 import { ATLAS_BUSINESS_LIST, ATLAS_BUSINESSES } from './data';
 import { AtlasAPI } from './api';
@@ -73,11 +73,11 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border-subtle)' }}>
         <div className="card" style={{ padding: 12, background: 'var(--bg-elevated)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
-            <Icon name="sparkles" size={13}/>
-            Atlas Pro trial
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>9 days remaining</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+      <Icon name="sparkles" size={13}/>
+      Atlas Pro trial
+    </div>
+    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>Trial active</div>
           <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Upgrade</button>
         </div>
         <button onClick={onExit} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'flex-start', marginTop: 8, color: 'var(--ink-3)' }}>
@@ -115,7 +115,7 @@ export const TopBar = ({ title, business, user, onSwitch, query, setQuery, onAsk
         </button>
         <button className="btn btn-ghost btn-sm" style={{ position: 'relative' }}>
           <Icon name="bell" size={15}/>
-          <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>
+          {false && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>}
         </button>
         <div style={{ width: 1, height: 22, background: 'var(--border)' }}/>
         <button onClick={() => setOpen(!open)} style={{

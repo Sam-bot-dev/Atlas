@@ -28,8 +28,9 @@ const MetricTile = ({ m, loading }) => {
   );
 };
 
-const InsightCard = ({ insight, onExplain }) => {
+const InsightCard = ({ insight, index, businessId, onExplain, onTakeAction }) => {
   const s = severityStyle(insight.severity);
+  const handleTakeAction = () => onTakeAction(insight, index);
   return (
     <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -47,7 +48,7 @@ const InsightCard = ({ insight, onExplain }) => {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-1)', borderColor: 'var(--border)' }}>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-1)', borderColor: 'var(--border)' }} onClick={handleTakeAction}>
             Take Action
           </button>
           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-3)' }} onClick={() => onExplain(insight)}>
@@ -120,9 +121,11 @@ const ActionCard = ({ action, onApply, applied }) => {
   );
 };
 
-export const Overview = ({ business: initialBusiness }) => {
-  const [business] = React.useState(initialBusiness);
-  const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});
+export const Overview = ({ business: initialBusiness, onRefresh }) => {
+  const [business, setBusiness] = React.useState(initialBusiness);
+  const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});  
+  const [revenueSeries, setRevenueSeries] = React.useState(initialBusiness.revenueSeries || []);
+  const [customerGrowth, setCustomerGrowth] = React.useState(initialBusiness.customerGrowth || []);
   const [insights, setInsights] = React.useState(initialBusiness.insights || []);
   const [actions, setActions] = React.useState(initialBusiness.actions || []);
   const [peakHours, setPeakHours] = React.useState(initialBusiness.peakHours || []);
@@ -136,6 +139,17 @@ export const Overview = ({ business: initialBusiness }) => {
   const [explanation, setExplanation] = React.useState(null);
   const [appliedActions, setAppliedActions] = React.useState({});
   const [period, setPeriod] = React.useState('1M');
+
+  // Update state when prop changes (7.1 fix)
+  React.useEffect(() => {
+    setBusiness(initialBusiness);
+    setMetrics(initialBusiness.metrics || {});
+    setRevenueSeries(initialBusiness.revenueSeries || []);
+    setCustomerGrowth(initialBusiness.customerGrowth || []);
+    setInsights(initialBusiness.insights || []);
+    setActions(initialBusiness.actions || []);
+    setPeakHours(initialBusiness.peakHours || []);
+  }, [initialBusiness]);
 
   // Fetch real data from API with granular loading per section
   React.useEffect(() => {
@@ -165,10 +179,18 @@ export const Overview = ({ business: initialBusiness }) => {
 
     // Peak hours / charts
     setLoadingCharts(true);
-    AtlasAPI.metrics.peakHours(initialBusiness.id)
-      .then(res => { if (active && res?.matrix?.length > 0) setPeakHours(res.matrix); })
-      .catch(console.error)
-      .finally(() => { if (active) setLoadingCharts(false); });
+    Promise.all([
+      AtlasAPI.metrics.series(initialBusiness.id, 'revenue'),
+      AtlasAPI.metrics.series(initialBusiness.id, 'customerGrowth'),
+      AtlasAPI.metrics.peakHours(initialBusiness.id, period)
+    ]).then(([rev, cust, peak]) => {
+      if (active) {
+        setRevenueSeries(rev || []);
+        setCustomerGrowth(cust || []);
+        if (peak?.matrix?.length > 0) setPeakHours(peak.matrix);
+      }
+    }).catch(console.error)
+    .finally(() => { if (active) setLoadingCharts(false); });
 
     return () => { active = false; };
   }, [initialBusiness.id, period]);
@@ -176,18 +198,35 @@ export const Overview = ({ business: initialBusiness }) => {
   const apply = async (actionId, index, type) => {
     try {
       if (type === 'task') {
-        await AtlasAPI.actions.createTask(initialBusiness.id, actionId);
+        const res = await AtlasAPI.actions.createTask(initialBusiness.id, actionId);
+        if (res.ok) setAppliedActions(prev => ({ ...prev, [index]: true }));
       } else if (type === 'dismiss') {
-        await AtlasAPI.actions.dismiss(initialBusiness.id, actionId);
-        setActions(prev => prev.filter(a => a.id !== actionId));
-        return;
+        const res = await AtlasAPI.actions.dismiss(initialBusiness.id, actionId);
+        if (res.ok) {
+          setActions(prev => prev.filter(a => a.id !== actionId));
+          return;
+        }
       } else {
-        await AtlasAPI.actions.apply(initialBusiness.id, actionId);
+        const res = await AtlasAPI.actions.apply(initialBusiness.id, actionId);
+        if (res.ok) setAppliedActions(prev => ({ ...prev, [index]: true }));
       }
-      setAppliedActions(prev => ({ ...prev, [index]: true }));
     } catch (e) {
       console.error('Failed to apply action', e);
-      setAppliedActions(prev => ({ ...prev, [index]: true }));
+      // Do not fake-apply on real error
+    }
+  };
+
+  const takeAction = async (insight, index) => {
+    try {
+      // Generate action ID from insight or create task directly
+      const actionId = `insight-${insight.id}`;
+      const res = await AtlasAPI.actions.apply(initialBusiness.id, actionId);
+      if (res.ok) {
+        // Mark as applied or refresh actions
+        onRefresh?.();
+      }
+    } catch (e) {
+      console.error('Failed to take action on insight', e);
     }
   };
 
@@ -260,7 +299,7 @@ export const Overview = ({ business: initialBusiness }) => {
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>01</span>
           <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>What is happening</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>· Six leading indicators across your business</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}><!-- Six leading indicators across your business --></div>
         </div>
 
         {/* Metric tiles — each individual tile shows its own skeleton */}
@@ -290,7 +329,7 @@ export const Overview = ({ business: initialBusiness }) => {
             </div>
             {loadingCharts
               ? <div className="skeleton" style={{ width: '100%', height: 180, borderRadius: 8 }}/>
-              : <LineChart data={business.revenueSeries} height={180} accent="var(--ink-1)"/>
+              : <LineChart data={metrics.revenueSeries || business.revenueSeries || []} height={180} accent="var(--ink-1)"/>
             }
           </div>
           <div className="card" style={{ padding: 18 }}>

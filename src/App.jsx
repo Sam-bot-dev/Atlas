@@ -69,21 +69,32 @@ export default function App() {
   const effectiveBusiness = { ...business, isDemo: isDemoMode || (business.isDemo === true) };
 
   useEffect(() => {
-    import('./api').then(({ AtlasAPI }) => {
-      AtlasAPI.auth.me().then((user) => {
+    import('./api').then(async ({ AtlasAPI }) => {
+      try {
+        const user = await AtlasAPI.auth.me();
         setCurrentUser(user);
         setView('dashboard');
-      }).catch(() => {
+      } catch {
         try {
           const saved = sessionStorage.getItem('atlas-state');
           if (saved) {
             const s = JSON.parse(saved);
             if (s.view) setView(s.view);
-            if (s.bizId) setBizId(s.bizId);
             if (s.page) setPage(s.page);
+            
+            // Guard stale bizId (7.22)
+            if (s.bizId) {
+              const allIds = [
+                ...apiBusinesses.map(b => b.id),
+                ...Object.keys(ATLAS_BUSINESSES)
+              ];
+              if (allIds.includes(s.bizId)) {
+                setBizId(s.bizId);
+              }
+            }
           }
         } catch (e) {}
-      });
+      }
     });
   }, []);
 
@@ -92,12 +103,21 @@ export default function App() {
   }, [view, bizId, page]);
 
   const handleDemo = async (id) => {
-    setIsDemoMode(true);
-    setBizId(id);
-    setView('dashboard');
-    setPage('overview');
+    try {
+      const { AtlasAPI } = await import('./api');
+      await AtlasAPI.auth.login('demo@atlas.ai', 'atlas123');
+      setIsDemoMode(true);
+      setBizId(id);
+      setView('dashboard');
+      setPage('overview');
+    } catch (e) {
+      console.error('Demo login failed:', e);
+    }
   };
-  const handleLogin = (user) => { if (user) setCurrentUser(user); setView('dashboard'); };
+  const handleLogin = async (user) => { 
+    if (user) setCurrentUser(user); 
+    setView('dashboard'); 
+  };
   const handleOnboardComplete = (user) => { if (user) setCurrentUser(user); setView('dashboard'); setPage('overview'); };
 
   const PageComponent = {
@@ -116,11 +136,11 @@ export default function App() {
       type: biz.type || biz.category || ATLAS_BUSINESSES[biz.id]?.type || 'Business',
       location: biz.location || biz.address || ATLAS_BUSINESSES[biz.id]?.location || '',
       initials: biz.initials || biz.name?.slice(0, 2).toUpperCase() || 'AT',
-      metrics: ATLAS_BUSINESSES[biz.id]?.metrics || ATLAS_BUSINESSES.baker.metrics,
-      revenueSeries: ATLAS_BUSINESSES[biz.id]?.revenueSeries || ATLAS_BUSINESSES.baker.revenueSeries,
-      ordersSeries: ATLAS_BUSINESSES[biz.id]?.ordersSeries || ATLAS_BUSINESSES.baker.ordersSeries,
-      customerGrowth: ATLAS_BUSINESSES[biz.id]?.customerGrowth || ATLAS_BUSINESSES.baker.customerGrowth,
-      topMovers: ATLAS_BUSINESSES[biz.id]?.topMovers || [],
+      metrics: biz.metrics || ATLAS_BUSINESSES[biz.id]?.metrics || ATLAS_BUSINESSES.baker.metrics,
+      revenueSeries: biz.revenueSeries || ATLAS_BUSINESSES[biz.id]?.revenueSeries || ATLAS_BUSINESSES.baker.revenueSeries,
+      ordersSeries: biz.ordersSeries || ATLAS_BUSINESSES[biz.id]?.ordersSeries || ATLAS_BUSINESSES.baker.ordersSeries,
+      customerGrowth: biz.customerGrowth || ATLAS_BUSINESSES[biz.id]?.customerGrowth || ATLAS_BUSINESSES.baker.customerGrowth,
+      topMovers: biz.topMovers || ATLAS_BUSINESSES[biz.id]?.topMovers || [],
     },
   }), { ...ATLAS_BUSINESSES });
 
@@ -129,7 +149,18 @@ export default function App() {
   const darkClass = tweaks.theme === 'dark' ? 'dark' : '';
 
   return (
-    <div className={`${sharpClass} ${densityClass} ${darkClass}`} style={{ minHeight: '100vh' }} data-screen-label={view === 'dashboard' ? page : view}>
+React.useEffect(() => {
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      setShowChat(true);
+    }
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, []);
+
+<div className={`${sharpClass} ${densityClass} ${darkClass}`} style={{ minHeight: '100vh' }} data-screen-label={view === 'dashboard' ? page : view}>
       {view === 'landing' && <Landing onDemo={handleDemo} onLogin={() => setView('login')} onSignup={() => setView('onboarding')} onNavigate={setView}/>}
       {view === 'login' && <Login onLogin={handleLogin} onBack={() => setView('landing')} onSignup={() => setView('onboarding')}/>}
       {view === 'onboarding' && <Onboarding onComplete={handleOnboardComplete} onBack={() => setView('landing')}/>}
@@ -184,36 +215,38 @@ export default function App() {
         </div>
       )}
 
-      <TweaksPanel title="Tweaks">
-        <TweakSection label="Layout">
-          <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)} options={[{ value: 'balanced', label: 'Balanced' }, { value: 'compact', label: 'Compact' }]}/>
-          <TweakToggle label="Sharper corners" value={tweaks.sharpEdges} onChange={(v) => setTweak('sharpEdges', v)}/>
-          <TweakRadio label="Theme" value={tweaks.theme} onChange={(v) => setTweak('theme', v)} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}/>
-        </TweakSection>
-        <TweakSection label="Demo business">
-          <TweakSelect label="Active business" value={bizId} onChange={setBizId} options={ATLAS_BUSINESS_LIST.map(b => ({ value: b.id, label: b.name }))}/>
-        </TweakSection>
-        <TweakSection label="Navigation">
-          <TweakSelect label="Jump to view" value={view} onChange={setView} options={[
-            { value: 'landing', label: 'Landing page' },
-            { value: 'pricing', label: 'Pricing' },
-            { value: 'docs', label: 'Docs' },
-            { value: 'login', label: 'Login' },
-            { value: 'onboarding', label: 'Onboarding' },
-            { value: 'dashboard', label: 'Dashboard' },
-          ]}/>
-          {view === 'dashboard' && (
-            <TweakSelect label="Dashboard page" value={page} onChange={setPage} options={[
-              { value: 'overview', label: 'Overview' },
-              { value: 'analytics', label: 'Analytics' },
-              { value: 'sources', label: 'Data sources' },
-              { value: 'automations', label: 'Automations' },
-              { value: 'reports', label: 'Reports' },
-              { value: 'settings', label: 'Settings' },
+      {import.meta.env.DEV && (
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="Layout">
+            <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)} options={[{ value: 'balanced', label: 'Balanced' }, { value: 'compact', label: 'Compact' }]}/>
+            <TweakToggle label="Sharper corners" value={tweaks.sharpEdges} onChange={(v) => setTweak('sharpEdges', v)}/>
+            <TweakRadio label="Theme" value={tweaks.theme} onChange={(v) => setTweak('theme', v)} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}/>
+          </TweakSection>
+          <TweakSection label="Demo business">
+            <TweakSelect label="Active business" value={bizId} onChange={setBizId} options={ATLAS_BUSINESS_LIST.map(b => ({ value: b.id, label: b.name }))}/>
+          </TweakSection>
+          <TweakSection label="Navigation">
+            <TweakSelect label="Jump to view" value={view} onChange={setView} options={[
+              { value: 'landing', label: 'Landing page' },
+              { value: 'pricing', label: 'Pricing' },
+              { value: 'docs', label: 'Docs' },
+              { value: 'login', label: 'Login' },
+              { value: 'onboarding', label: 'Onboarding' },
+              { value: 'dashboard', label: 'Dashboard' },
             ]}/>
-          )}
-        </TweakSection>
-      </TweaksPanel>
+            {view === 'dashboard' && (
+              <TweakSelect label="Dashboard page" value={page} onChange={setPage} options={[
+                { value: 'overview', label: 'Overview' },
+                { value: 'analytics', label: 'Analytics' },
+                { value: 'sources', label: 'Data sources' },
+                { value: 'automations', label: 'Automations' },
+                { value: 'reports', label: 'Reports' },
+                { value: 'settings', label: 'Settings' },
+              ]}/>
+            )}
+          </TweakSection>
+        </TweaksPanel>
+      )}
     </div>
   );
 }

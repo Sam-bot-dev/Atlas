@@ -3,6 +3,9 @@ import { Icon, AtlasLogo } from './ui';
 import { AtlasAPI } from './api';
 
 export const ChatPanel = ({ business, onClose }) => {
+  React.useEffect(() => {
+    setMessages([{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }]);
+  }, [business.id]);
   const [query, setQuery] = React.useState('');
   const [messages, setMessages] = React.useState([
     { role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }
@@ -26,7 +29,14 @@ export const ChatPanel = ({ business, onClose }) => {
     setLoading(true);
 
     try {
-      const res = await AtlasAPI.insights.ask(business.id, query);
+      const res = await AtlasAPI.insights.ask(business.id, { query, context: messages });
+      const assistantMsg = { 
+        role: 'assistant', 
+        content: res.answer, 
+        evidence: res.evidence,
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, assistantMsg]);
       const assistantMsg = { 
         role: 'assistant', 
         content: res.answer, 

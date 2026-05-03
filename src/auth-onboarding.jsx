@@ -87,6 +87,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
   const [bizType, setBizType] = React.useState('Home Baker');
   const [goals, setGoals] = React.useState(['rev', 'repeat']);
   const [uploads, setUploads] = React.useState([]);
+  const fileInputRef = React.useRef(null);
   const [integrations, setIntegrations] = React.useState({ gbiz: true, square: false, ig: false, shop: false });
   
   // New account state
@@ -148,7 +149,8 @@ export const Onboarding = ({ onComplete, onBack }) => {
       }
       setDetecting(true);
       try {
-        const user = await AtlasAPI.auth.signup({ email, password, name: bizName });
+        const userName = bizName.split('\'s')[0] || 'Owner'; // Extract personal name e.g. "Priya" from "Priya's Bakes"
+        const user = await AtlasAPI.auth.signup({ email, password, name: userName });
         await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr, goals: goals });
         sessionStorage.removeItem(PERSIST_KEY);
         onComplete(user);
@@ -252,11 +254,24 @@ export const Onboarding = ({ onComplete, onBack }) => {
               <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 8 }}>Add your data</div>
               <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32 }}>Upload files or connect a system. The more Atlas sees, the sharper its recommendations.</div>
               <div className="card" style={{ padding: 24, borderStyle: 'dashed', textAlign: 'center', cursor: 'pointer', marginBottom: 24, borderColor: 'var(--border-strong)' }}
-                onClick={() => setUploads([...uploads, { name: 'reviews-export.pdf', kind: 'pdf', size: '512 KB' }])}>
+                onClick={() => fileInputRef.current?.click()}>
                 <Icon name="upload" size={20} />
                 <div style={{ fontSize: 14, fontWeight: 500, marginTop: 12, marginBottom: 4 }}>Drop files here or click to upload</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>PDF · CSV · PNG/JPG · XLSX · up to 50MB</div>
               </div>
+              <input ref={fileInputRef} type="file" multiple accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={async (e) => {
+                const files = Array.from(e.target.files);
+                for (const file of files) {
+                  try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await AtlasAPI.uploads.create(bizName || 'New Business', formData);
+                    setUploads(prev => [...prev, { name: file.name, kind: file.name.split('.').pop(), size: (file.size / 1024).toFixed(0) + ' KB', id: res.id }]);
+                  } catch (err) {
+                    alert('Upload failed: ' + file.name);
+                  }
+                }
+              }} />
               <div className="eyebrow" style={{ marginBottom: 12 }}>Connect a system</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                 {[

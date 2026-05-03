@@ -43,11 +43,19 @@ export const Analytics = ({ business: initialBusiness }) => {
     }
   };
 
-  const downloadTemplate = () => {
-    const link = document.createElement('a');
-    link.href = '/metrics-template.csv';
-    link.download = 'metrics-template.csv';
-    link.click();
+        const downloadTemplate = async () => {
+    try {
+      const res = await AtlasAPI.metrics.downloadTemplate();
+      const blob = new Blob([res], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'metrics-template.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed', err);
+    }
   };
 
   const fallbackMetric = { value: 0, delta: 0, label: 'No data', unit: '', period: '' };
@@ -243,8 +251,42 @@ export const Settings = ({ business }) => (
     <div className="card" style={{ padding: 24 }}>
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Business info</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div><label style={{ fontSize: 12, color: 'var(--ink-3)' }}>Name</label><input className="input" value={business.name} disabled /></div>
-        <div><label style={{ fontSize: 12, color: 'var(--ink-3)' }}>Type</label><input className="input" value={business.type} disabled /></div>
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--ink-3)' }}>Name</label>
+          <input className="input" value={business.name || ''} onChange={async (e) => {
+            const newName = e.target.value;
+            try {
+              await AtlasAPI.businesses.update(business.id, { name: newName });
+              onRefresh();
+            } catch (err) {
+              console.error('Update failed', err);
+            }
+          }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--ink-3)' }}>Type</label>
+          <input className="input" value={business.type || ''} onChange={async (e) => {
+            const newType = e.target.value;
+            try {
+              await AtlasAPI.businesses.update(business.id, { type: newType });
+              onRefresh();
+            } catch (err) {
+              console.error('Update failed', err);
+            }
+          }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--ink-3)' }}>Address</label>
+          <input className="input" value={business.location || business.address || ''} onChange={async (e) => {
+            const newAddr = e.target.value;
+            try {
+              await AtlasAPI.businesses.update(business.id, { location: newAddr });
+              onRefresh();
+            } catch (err) {
+              console.error('Update failed', err);
+            }
+          }} />
+        </div>
       </div>
     </div>
   </div>
