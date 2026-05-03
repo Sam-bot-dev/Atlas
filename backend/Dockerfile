@@ -14,7 +14,7 @@ RUN npx prisma generate
 FROM base AS runner
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev || npm install --omit=dev
+RUN npm ci --omit=dev || npm install --omit=dev && cd backend && npm ci --omit=dev || npm install --omit=dev
 COPY --from=builder /app/prisma ./prisma
 # Prisma client is stored in node_modules/.prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
