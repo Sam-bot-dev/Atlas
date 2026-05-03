@@ -10,15 +10,50 @@ export const Analytics = ({ business: initialBusiness }) => {
   const [cat, setCat] = React.useState('All');
   const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});
   const [loading, setLoading] = React.useState(false);
+  const [importLoading, setImportLoading] = React.useState(false);
+  const [importMessage, setImportMessage] = React.useState('');
+  const fileInputRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!initialBusiness.id || initialBusiness.id.startsWith('demo-')) return;
+    if (!initialBusiness.id || ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(initialBusiness.id)) return;
     setLoading(true);
     AtlasAPI.metrics.summary(initialBusiness.id, range)
       .then(res => { if (res && Object.keys(res).length > 0) setMetrics(res); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [initialBusiness.id, range]);
+
+  const handleImportExcel = async (file) => {
+    if (!file) return;
+    setImportLoading(true);
+    setImportMessage('Importing metrics...');
+    try {
+      const result = await AtlasAPI.metrics.importExcel(initialBusiness.id, file);
+      setImportMessage(`✓ Successfully updated metrics for ${result.totalUpdated} business(es)`);
+      setTimeout(() => {
+        setImportMessage('');
+        setLoading(true);
+        AtlasAPI.metrics.summary(initialBusiness.id, range)
+          .then(res => { if (res && Object.keys(res).length > 0) setMetrics(res); })
+          .catch(console.error)
+          .finally(() => setLoading(false));
+      }, 2000);
+    } catch (error) {
+      setImportMessage(`✗ Error: ${error.message || 'Failed to import metrics'}`);
+      setTimeout(() => setImportMessage(''), 3000);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const link = document.createElement('a');
+    link.href = '/metrics-template.csv';
+    link.download = 'metrics-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const fallbackMetric = { value: 0, delta: 0, label: 'No data', unit: '', period: '' };
   const revenue = metrics.revenue || initialBusiness.metrics?.revenue || fallbackMetric;
@@ -43,6 +78,56 @@ export const Analytics = ({ business: initialBusiness }) => {
           </div>
         }
       />
+
+      {/* Excel Import Section */}
+      <div className="card" style={{ padding: 18, marginBottom: 12, background: 'linear-gradient(135deg, var(--bg-subtle) 0%, var(--bg-elevated) 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-1)', marginBottom: 4 }}>
+              <Icon name="upload" size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              Import Metrics from Excel
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+              Upload an Excel or CSV file to update revenue, growth, orders, and customer data for all businesses
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importLoading}
+              className="btn btn-sm"
+              style={{ opacity: importLoading ? 0.6 : 1 }}
+            >
+              <Icon name="upload" size={12}/>
+              {importLoading ? 'Importing...' : 'Upload Excel'}
+            </button>
+            <button 
+              onClick={downloadTemplate}
+              className="btn btn-sm"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--ink-2)' }}
+            >
+              <Icon name="download" size={12}/>
+              Template
+            </button>
+          </div>
+        </div>
+        {importMessage && (
+          <div style={{ marginTop: 12, padding: 8, fontSize: 12, borderRadius: 4, background: importMessage.includes('✓') ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: importMessage.includes('✓') ? '#22c55e' : '#ef4444', border: `1px solid ${importMessage.includes('✓') ? '#22c55e' : '#ef4444'}` }}>
+            {importMessage}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={(e) => {
+            if (e.target.files?.[0]) {
+              handleImportExcel(e.target.files[0]);
+            }
+          }}
+          style={{ display: 'none' }}
+        />
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
         {/* Revenue card */}
@@ -290,7 +375,7 @@ export const Automations = ({ business }) => {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!business.id || business.id.startsWith('demo-')) {
+    if (!business.id || ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(business.id)) {
       setAutos(business.automations || []);
       return;
     }
@@ -305,7 +390,7 @@ export const Automations = ({ business }) => {
   }, [business.id]);
 
   const toggle = async (id) => {
-    if (business.id.startsWith('demo-')) {
+    if (['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(business.id)) {
       setAutos(autos.map(a => a.id === id ? { ...a, status: a.status === 'active' ? 'paused' : 'active' } : a));
       return;
     }
@@ -329,7 +414,32 @@ export const Automations = ({ business }) => {
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader eyebrow="Run on autopilot" title="Automations" subtitle="Rules that run when conditions are met."/>
+      <SectionHeader 
+        eyebrow="Run on autopilot" 
+        title="Automations" 
+        subtitle="Rules that run when conditions are met."
+        action={
+          <>
+            <input type="file" id="json-upload" accept=".json" style={{ display: 'none' }} onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                  try {
+                    const json = JSON.parse(event.target.result);
+                    const created = await AtlasAPI.automations.create(business.id, { trigger: json.trigger || 'uploaded_json', action: json.action || 'upload JSON' });
+                    setAutos([...autos, created]);
+                  } catch (err) { alert('Failed to read or upload JSON automation'); }
+                };
+                reader.readAsText(file);
+              }
+            }}/>
+            <button className="btn btn-primary btn-sm" onClick={() => document.getElementById('json-upload').click()}>
+              <Icon name="plus" size={13}/> Add automation
+            </button>
+          </>
+        }
+      />
 
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--ink-2)' }}>Active Automations</div>
       <div className="card" style={{ padding: 0, marginBottom: 32, overflow: 'hidden' }}>
@@ -401,7 +511,7 @@ export const Reports = ({ business }) => {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!business.id || business.id.startsWith('demo-')) {
+    if (!business.id || ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(business.id)) {
       setReports([
         { id: 'rep-1', name: 'Weekly performance brief', desc: 'Last 7 days · executive summary + 3 actions', date: 'May 1, 2026', size: '4 pages' },
       ]);
@@ -415,7 +525,7 @@ export const Reports = ({ business }) => {
   }, [business.id]);
 
   const download = (r) => {
-    if (business.id.startsWith('demo-')) {
+    if (['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(business.id)) {
       alert('Reports are available for registered businesses. Generating demo PDF...');
       return;
     }
@@ -484,7 +594,7 @@ export const Settings = ({ business }) => {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!business.id.startsWith('demo-')) {
+    if (!['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(business.id)) {
       setLoading(true);
       AtlasAPI.settings.get(business.id)
         .then(data => { if (data && data.goals) setGoals(data.goals); })
@@ -503,7 +613,7 @@ export const Settings = ({ business }) => {
   const toggleGoal = (id) => setGoals(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id]);
 
   const save = async () => {
-    if (business.id.startsWith('demo-')) {
+    if (['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(business.id)) {
       alert('Settings persistence is available for registered businesses.');
       return;
     }

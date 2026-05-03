@@ -51,13 +51,23 @@ const upload = (path, formData) =>
 
 const AtlasAPI = {
   auth: {
+    exchange: async (fbToken) => {
+      const res = await fetch(API_BASE + '/auth/firebase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: fbToken })
+      });
+      if (!res.ok) throw new Error('Token exchange failed');
+      const data = await res.json();
+      setToken(data.token);
+      return data.user;
+    },
     login: async (email, password) => {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       const { auth } = await import('./firebase');
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();
-      setToken(token);
-      return cred.user;
+      return AtlasAPI.auth.exchange(token);
     },
     loginWithGoogle: async () => {
       const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
@@ -65,8 +75,7 @@ const AtlasAPI = {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
       const token = await cred.user.getIdToken();
-      setToken(token);
-      return cred.user;
+      return AtlasAPI.auth.exchange(token);
     },
     signup: async ({ email, password, name }) => {
       const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
@@ -76,8 +85,7 @@ const AtlasAPI = {
         await updateProfile(cred.user, { displayName: name });
       }
       const token = await cred.user.getIdToken();
-      setToken(token);
-      return cred.user;
+      return AtlasAPI.auth.exchange(token);
     },
     logout: async () => {
       const { signOut } = await import('firebase/auth');
@@ -93,8 +101,12 @@ const AtlasAPI = {
           unsubscribe();
           if (user) {
             const token = await user.getIdToken();
-            setToken(token);
-            resolve(user);
+            try {
+              const atlasUser = await AtlasAPI.auth.exchange(token);
+              resolve(atlasUser);
+            } catch (e) {
+              reject(e);
+            }
           } else {
             reject(new Error('Not logged in'));
           }
@@ -129,6 +141,11 @@ const AtlasAPI = {
     summary: (bizId, period = '1M') => get(`/businesses/${bizId}/metrics`, { period }),
     series: (bizId, metric, period = '6M') => get(`/businesses/${bizId}/metrics/series/${metric}`, { period }),
     peakHours: (bizId) => get(`/businesses/${bizId}/metrics/peak-hours`),
+    importExcel: (bizId, file) => {
+      const form = new FormData();
+      form.append('file', file);
+      return upload(`/businesses/${bizId}/metrics/import-excel`, form);
+    },
   },
   insights: {
     list: (bizId) => get(`/businesses/${bizId}/insights`),

@@ -46,9 +46,14 @@ const InsightCard = ({ insight, onExplain }) => {
             <span key={i} className="badge" style={{ fontSize: 10 }}>{e}</span>
           ))}
         </div>
-        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-3)' }} onClick={() => onExplain(insight)}>
-          Explain <Icon name="arrow-right" size={11}/>
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-1)', borderColor: 'var(--border)' }}>
+            Take Action
+          </button>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-3)' }} onClick={() => onExplain(insight)}>
+            Explain <Icon name="arrow-right" size={11}/>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -106,8 +111,8 @@ const ActionCard = ({ action, onApply, applied }) => {
         ) : (
           <>
             <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={onApply}>Apply suggestion</button>
-            <button className="btn btn-sm" style={{ justifyContent: 'center' }}>Create task</button>
-            <button className="btn btn-ghost btn-sm" style={{ padding: 6 }}><Icon name="x" size={13}/></button>
+            <button className="btn btn-sm" style={{ justifyContent: 'center' }} onClick={() => onApply('task')}>Create task</button>
+            <button className="btn btn-ghost btn-sm" style={{ padding: 6 }} onClick={() => onApply('dismiss')}><Icon name="x" size={13}/></button>
           </>
         )}
       </div>
@@ -135,7 +140,7 @@ export const Overview = ({ business: initialBusiness }) => {
   // Fetch real data from API with granular loading per section
   React.useEffect(() => {
     let active = true;
-    if (!initialBusiness.id || initialBusiness.id.startsWith('demo-')) return;
+    if (!initialBusiness.id || ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(initialBusiness.id)) return;
 
     // Metrics
     setLoadingMetrics(true);
@@ -168,9 +173,17 @@ export const Overview = ({ business: initialBusiness }) => {
     return () => { active = false; };
   }, [initialBusiness.id, period]);
 
-  const apply = async (actionId, index) => {
+  const apply = async (actionId, index, type) => {
     try {
-      await AtlasAPI.actions.apply(initialBusiness.id, actionId);
+      if (type === 'task') {
+        await AtlasAPI.actions.createTask(initialBusiness.id, actionId);
+      } else if (type === 'dismiss') {
+        await AtlasAPI.actions.dismiss(initialBusiness.id, actionId);
+        setActions(prev => prev.filter(a => a.id !== actionId));
+        return;
+      } else {
+        await AtlasAPI.actions.apply(initialBusiness.id, actionId);
+      }
       setAppliedActions(prev => ({ ...prev, [index]: true }));
     } catch (e) {
       console.error('Failed to apply action', e);
@@ -359,7 +372,7 @@ export const Overview = ({ business: initialBusiness }) => {
           {loadingActions
             ? [0, 1, 2].map(i => <SkeletonActionCard key={i} />)
             : actions.length > 0
-              ? actions.map((a, i) => <ActionCard key={i} action={a} onApply={() => apply(a.id, i)} applied={appliedActions[i]}/>)
+              ? actions.map((a, i) => <ActionCard key={i} action={a} onApply={(type) => apply(a.id, i, type)} applied={appliedActions[i]}/>)
               : (
                 <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
                   No recommended actions yet.

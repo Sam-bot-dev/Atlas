@@ -58,7 +58,7 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Email</label>
-              <input className="input" placeholder="demo@atlas.ai" value={email} onChange={(e) => setEmail(e.target.value)}/>
+              <input className="input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}/>
             </div>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -70,10 +70,6 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
             <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} onClick={handleLogin} disabled={loading}>
               {loading ? 'Logging in...' : 'Log in'}
             </button>
-              Demo: <code style={{ color: 'var(--ink-2)' }}>demo@atlas.ai</code> / <code style={{ color: 'var(--ink-2)' }}>atlas123</code>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--ink-4)', textAlign: 'center', marginTop: 32 }}>
-            Protected by SOC 2 Type II controls.
           </div>
         </div>
       </div>
@@ -153,7 +149,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
       setDetecting(true);
       try {
         const user = await AtlasAPI.auth.signup({ email, password, name: bizName });
-        await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr });
+        await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr, goals: goals });
         sessionStorage.removeItem(PERSIST_KEY);
         onComplete(user);
       } catch (e) {
