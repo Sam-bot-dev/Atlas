@@ -50,6 +50,7 @@ const signupUser = asyncHandler(async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      isFirebaseUser: false,
     },
   });
 
@@ -154,7 +155,8 @@ const firebaseLogin = asyncHandler(async (req, res) => {
       data: {
         email: decoded.email,
         name: decoded.name || 'Google User',
-        password: 'firebase-user', // dummy password, login via firebase
+        password: null,
+        isFirebaseUser: true,
       }
     });
   }

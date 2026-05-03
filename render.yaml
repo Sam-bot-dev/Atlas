@@ -5,7 +5,7 @@ services:
     plan: starter
     region: singapore
     buildCommand: npm install && npm run build
-    startCommand: mkdir -p /var/data /var/data/uploads && touch /var/data/atlas.db && cd backend && npx prisma migrate deploy && npm start
+    startCommand: mkdir -p /var/data /var/data/uploads && touch /var/data/atlas.db && cd backend && npx prisma migrate deploy && node prisma/seed.js && npm start
     healthCheckPath: /api/v1/health
     autoDeploy: true
     disk:

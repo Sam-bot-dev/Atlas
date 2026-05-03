@@ -17,17 +17,10 @@ const protect = asyncHandler(async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      let user;
-      try {
-        user = await prisma.user.findUnique({
+      user = await prisma.user.findUnique({
           where: { id: decoded.id },
           select: { id: true, name: true, email: true },
         });
-      } catch (dbError) {
-        console.error('DATABASE ERROR in authMiddleware:', dbError.message);
-        res.status(500);
-        throw new Error('Database connection failed during authentication.');
-      }
 
       if (!user) {
         res.status(401);

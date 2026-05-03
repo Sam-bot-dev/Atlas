@@ -55,12 +55,12 @@ const AtlasAPI = {
       const res = await fetch(API_BASE + '/auth/firebase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: fbToken })
+        body: JSON.stringify({ idToken: fbToken })
       });
       if (!res.ok) throw new Error('Token exchange failed');
       const data = await res.json();
       setToken(data.token);
-      return data.user;
+      return data;
     },
     login: async (email, password) => {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
