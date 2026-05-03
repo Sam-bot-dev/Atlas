@@ -8,6 +8,11 @@ const { createTask } = require('./taskService');
  * Evaluates triggers and maps them to concrete execution steps
  */
 
+/**
+ * @param {string} businessId
+ * @param {string} triggerEvent
+ * @param {any} payloadData
+ */
 async function evaluateAutomations(businessId, triggerEvent, payloadData) {
   const business = await prisma.business.findUnique({
     where: { id: businessId },
@@ -20,7 +25,8 @@ async function evaluateAutomations(businessId, triggerEvent, payloadData) {
   });
 
   for (const auto of automations) {
-    const payloadInfo = JSON.parse(auto.payload || '{}');
+    let payloadInfo = {};
+    try { payloadInfo = JSON.parse(auto.payload || '{}'); } catch { /* malformed payload — skip */ }
     
     if (auto.actionType === 'email_alert') {
       await sendEmailAlert(payloadInfo.to || ownerEmail, `Alert: ${triggerEvent}`, JSON.stringify(payloadData));
@@ -29,11 +35,11 @@ async function evaluateAutomations(businessId, triggerEvent, payloadData) {
         await dispatchWebhook(payloadInfo.url, { trigger: triggerEvent, data: payloadData });
       }
     } else if (auto.actionType === 'create_task') {
-      await createTask({
+      await createTask(/** @type {any} */({
         businessId,
         title: `Auto-generated task from trigger: ${triggerEvent}`,
         description: 'System generated automation execution.',
-      });
+      }));
     }
 
     await prisma.automation.update({
@@ -43,7 +49,11 @@ async function evaluateAutomations(businessId, triggerEvent, payloadData) {
   }
 }
 
-async function createAutomation({ businessId, trigger, actionType, payload }) {
+/**
+ * @param {{ businessId: string, trigger: string, actionType: string, payload?: any }} options
+ */
+async function createAutomation(options) {
+  const { businessId, trigger, actionType, payload } = options;
   return prisma.automation.create({
     data: {
       businessId,
@@ -54,6 +64,9 @@ async function createAutomation({ businessId, trigger, actionType, payload }) {
   });
 }
 
+/**
+ * @param {string} businessId
+ */
 async function getSuggestedAutomations(businessId) {
   const business = await prisma.business.findUnique({
     where: { id: businessId },
@@ -63,11 +76,15 @@ async function getSuggestedAutomations(businessId) {
     }
   });
 
+  // Fix: null-check before accessing relations — an invalid businessId returns
+  // null from findUnique, and accessing .inventory/.metrics on null throws.
+  if (!business) return [];
+
   const suggestions = [];
 
   // Data-driven (8.5)
-  const inventory = business.inventory || [];
-  const lowStock = inventory.filter(i => i.quantityOnHand <= i.reorderPoint).length;
+  const inventory = /** @type {any[]} */ (business.inventory || []);
+  const lowStock = inventory.filter(/** @param {any} i */ i => i.quantityOnHand <= i.reorderPoint).length;
   if (lowStock > 0) {
     suggestions.push({
       trigger: 'inventory_low',
@@ -76,7 +93,7 @@ async function getSuggestedAutomations(businessId) {
     });
   }
 
-  const revenueMetric = business.metrics.find(m => m.key === 'revenue');
+  const revenueMetric = /** @type {any} */ (business.metrics.find(/** @param {any} m */ m => m.key === 'revenue'));
   if (revenueMetric && revenueMetric.delta < -10) {
     suggestions.push({
       trigger: 'revenue_drop',

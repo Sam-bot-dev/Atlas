@@ -77,7 +77,7 @@ const loginUser = asyncHandler(async (req, res) => {
   // Check for user email
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (user && (await bcrypt.compare(password, user.password))) {
+  if (user && user.password && (await bcrypt.compare(password, user.password))) {
     res.json({
       _id: user.id,
       name: user.name,
@@ -110,8 +110,9 @@ const getMe = asyncHandler(async (req, res) => {
 // Generate JWT
 const generateToken = (id, email) => {
   assertJwtSecret();
+  // Fix #4: reduced expiry from 30d to 7d for better security hygiene
   return jwt.sign({ id, email }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
+    expiresIn: '7d',
   });
 };
 

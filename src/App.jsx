@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Landing } from './landing';
 import { Login, Onboarding } from './auth-onboarding';
 import { Sidebar, TopBar, BusinessSwitcher } from './shell';
@@ -28,6 +28,7 @@ export default function App() {
   const [page, setPage] = useState('overview');
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showTweaks, setShowTweaks] = useState(false); // Fix #107
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [apiBusinesses, setApiBusinesses] = useState([]);
   const [currentBusiness, setCurrentBusiness] = useState(null);
@@ -40,9 +41,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     if (view === 'dashboard') {
       loadAtlasAPI().then((AtlasAPI) => {
+        if (!active) return;
         AtlasAPI.businesses.list().then((list) => {
+          if (!active) return;
           if (list && list.length > 0) {
             setApiBusinesses(list);
             if (!bizId || !list.find((b) => b.id === bizId)) {
@@ -52,7 +56,10 @@ export default function App() {
         }).catch(() => {});
       });
     }
-  }, [view, bizId, loadAtlasAPI]);
+    return () => { active = false; };
+    // Fix #51: bizId removed from deps — it caused a full list refetch on every
+    // business switch. The list only needs re-fetching when view changes.
+  }, [view, loadAtlasAPI]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshBusiness = useCallback(() => {
     if (view === 'dashboard' && bizId) {
@@ -72,59 +79,103 @@ export default function App() {
 
   useEffect(() => {
     loadAtlasAPI().then(async (AtlasAPI) => {
-      try {
-        const user = await AtlasAPI.auth.me();
-        setCurrentUser(user);
-        setView('dashboard');
-      } catch {
-        try {
-          const saved = sessionStorage.getItem('atlas-state');
-          if (saved) {
-            const s = JSON.parse(saved);
-            if (s.view) setView(s.view);
-            if (s.page) setPage(s.page);
-            if (s.bizId) {
-              const allIds = [
-                ...apiBusinesses.map((b) => b.id),
-                ...Object.keys(ATLAS_BUSINESSES)
-              ];
-              if (allIds.includes(s.bizId)) {
-                setBizId(s.bizId);
-              }
-            }
-          }
-} catch (e) {
-        // Ignore storage errors
-      }
-    }
-    });
-  }, []);
+       try {
+         // Fix #98: only call me() if we don't have a cached user already
+         const cachedUser = sessionStorage.getItem('atlas-user');
+         if (cachedUser) {
+           try {
+             const user = JSON.parse(cachedUser);
+             setCurrentUser(user);
+             // Still verify we have businesses
+             const businesses = await AtlasAPI.businesses.list();
+             if (businesses && businesses.length > 0) {
+               setView('dashboard');
+             } else {
+               setView('onboarding');
+             }
+             return;
+           } catch {
+             // Invalid cache, fall through to fresh fetch
+           }
+         }
+
+         const user = await AtlasAPI.auth.me();
+         setCurrentUser(user);
+         // Cache user to avoid repeated me() calls
+         try { sessionStorage.setItem('atlas-user', JSON.stringify(user)); } catch { /* ignore */ }
+         // Check if user has businesses to decide where to land
+         try {
+           const businesses = await AtlasAPI.businesses.list();
+           if (businesses && businesses.length > 0) {
+             setView('dashboard');
+           } else {
+             setView('onboarding');
+           }
+         } catch {
+           setView('onboarding');
+         }
+       } catch {
+         try {
+           const saved = sessionStorage.getItem('atlas-state');
+           if (saved) {
+             const s = JSON.parse(saved);
+             if (s.view) setView(s.view);
+             if (s.page) setPage(s.page);
+             if (s.bizId) {
+               setBizId(s.bizId);
+             }
+           }
+         } catch {
+           // Ignore storage errors
+         }
+       }
+     });
+   }, [loadAtlasAPI]);
 
   useEffect(() => {
     try { 
       sessionStorage.setItem('atlas-state', JSON.stringify({ view, bizId, page })); 
-    } catch (e) {
+    } catch {
       // Ignore storage errors
     }
   }, [view, bizId, page]);
 
   const handleDemo = async (id) => {
+    // Always show demo UI immediately — don't block on login
+    setIsDemoMode(true);
+    setBizId(id);
+    setView('dashboard');
+    setPage('overview');
     try {
-      const { AtlasAPI } = await loadAtlasAPI();
-      await AtlasAPI.auth.login('demo@atlas.ai', 'atlas123');
-      setIsDemoMode(true);
-      setBizId(id);
-      setView('dashboard');
-      setPage('overview');
+      const AtlasAPI = await loadAtlasAPI(); // Fix #3: loadAtlasAPI returns AtlasAPI directly
+      await AtlasAPI.auth.demoLogin();
     } catch (e) {
-      console.error('Demo login failed:', e);
+      // Demo still works with local data even if backend login fails
+      console.warn('Demo backend login failed (demo still works locally):', e.message);
     }
   };
 
-  const handleLogin = (user) => { 
-    if (user) setCurrentUser(user); 
-    setView('dashboard'); 
-  };
+   const handleLogin = (user) => {
+     if (!user) return;
+     setCurrentUser(user);
+     // Check if user has any businesses to decide onboarding vs dashboard
+     loadAtlasAPI().then((AtlasAPI) => {
+       AtlasAPI.businesses.list()
+         .then((list) => {
+           if (list && list.length > 0) {
+             // Returning user — go to dashboard
+             setView('dashboard');
+           } else {
+             // New user — start onboarding
+             setView('onboarding');
+           }
+         })
+         .catch(() => {
+           // API error — still go to onboarding to be safe
+           setView('onboarding');
+         });
+     });
+   };
 
   const handleOnboardComplete = (user) => { 
     if (user) setCurrentUser(user); 
@@ -132,22 +183,12 @@ export default function App() {
     setPage('overview'); 
   };
 
-  const allBusinesses = apiBusinesses.reduce((acc, biz) => ({
-    ...acc,
-    [biz.id]: {
-      ...ATLAS_BUSINESSES[biz.id],
-      ...biz,
-      type: biz.type || biz.category || ATLAS_BUSINESSES[biz.id]?.type || 'Business',
-      location: biz.location || biz.address || ATLAS_BUSINESSES[biz.id]?.location || '',
-      initials: biz.initials || biz.name?.slice(0, 2).toUpperCase() || 'AT',
-      metrics: biz.metrics || ATLAS_BUSINESSES[biz.id]?.metrics || ATLAS_BUSINESSES.baker.metrics,
-      revenueSeries: biz.revenueSeries || ATLAS_BUSINESSES[biz.id]?.revenueSeries || ATLAS_BUSINESSES.baker.revenueSeries,
-      ordersSeries: biz.ordersSeries || ATLAS_BUSINESSES[biz.id]?.ordersSeries || ATLAS_BUSINESSES.baker.ordersSeries,
-      customerGrowth: biz.customerGrowth || ATLAS_BUSINESSES[biz.id]?.customerGrowth || ATLAS_BUSINESSES.baker.customerGrowth,
-      topMovers: biz.topMovers || ATLAS_BUSINESSES[biz.id]?.topMovers || [],
-    },
-  }), { ...ATLAS_BUSINESSES });
+  const allBusinesses = { ...ATLAS_BUSINESSES, ...Object.fromEntries(apiBusinesses.map(b => [b.id, b])) };
 
+  /** @typedef {{ DEV?: boolean }} ImportMetaEnv */
+  /** @type {ImportMeta & { env: ImportMetaEnv }} */
+  const importMeta = import.meta;
+  const isDev = importMeta.env?.DEV;
   const sharpClass = tweaks.sharpEdges ? 'sharp' : '';
   const densityClass = tweaks.density === 'compact' ? 'compact' : '';
   const darkClass = tweaks.theme === 'dark' ? 'dark' : '';
@@ -158,6 +199,11 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowChat(true);
+      }
+      // Fix #107: Ctrl/Cmd+Shift+T opens the theme/density panel in all builds
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        setShowTweaks(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -180,13 +226,17 @@ export default function App() {
               business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
               isDemo={isDemoMode || (currentBusiness?.isDemo === true)}
               onSwitch={() => setShowSwitcher(true)}
+            user={currentUser}
+              onUpgrade={() => setView('pricing')}
               onExit={async () => {
                 try {
-                  const { AtlasAPI } = await loadAtlasAPI();
+                  const AtlasAPI = await loadAtlasAPI(); // Fix #3: same destructuring fix
                   await AtlasAPI.auth.logout();
                 } finally {
                   setCurrentUser(null);
                   setIsDemoMode(false);
+                  sessionStorage.removeItem('atlas-user');
+                  sessionStorage.removeItem('atlas-state');
                   setView('landing');
                 }
               }}
@@ -196,9 +246,28 @@ export default function App() {
                 title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings' })[page]}
                 business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
                 user={currentUser}
+                onExit={async () => {
+                  try {
+                    const AtlasAPI = await loadAtlasAPI();
+                    await AtlasAPI.auth.logout();
+                  } finally {
+                    setCurrentUser(null);
+                    setIsDemoMode(false);
+                    sessionStorage.removeItem('atlas-user');
+                    sessionStorage.removeItem('atlas-state');
+                    setView('landing');
+                  }
+                }}
               />
               <div style={{ flex: 1 }}>
-            <Pages business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} onRefresh={refreshBusiness} key={bizId + page}/>
+                {/* Fix #49: don't silently fall back to Priya's Bakes for real users whose
+                  business failed to load — show a null-safe placeholder instead */}
+              {page === 'overview'
+                ? (currentBusiness || ATLAS_BUSINESSES[bizId])
+                  ? <Overview business={currentBusiness || ATLAS_BUSINESSES[bizId]} />
+                  : <div style={{ padding: 64, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
+                : <Pages business={currentBusiness || ATLAS_BUSINESSES[bizId] || null} onRefresh={refreshBusiness} initialTab={page} key={bizId + page}/>
+                }
               </div>
               {/* Chat Trigger FAB */}
               {!showChat && (
@@ -216,7 +285,6 @@ export default function App() {
               <BusinessSwitcher 
                 current={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} 
                 allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name, isDemo: false })), ...ATLAS_BUSINESS_LIST]} 
-                allBusinesses={allBusinesses} 
                 onSelect={(id) => {
                   setIsDemoMode(ATLAS_BUSINESS_LIST.some(b => b.id === id));
                   setBizId(id);
@@ -227,7 +295,8 @@ export default function App() {
               />
             )}
           </div>
-          {import.meta.env.DEV && (
+          {/* Fix #107: available in all builds via Ctrl+Shift+T, not just DEV */}
+          {(isDev || showTweaks) && (
             <TweaksPanel title="Tweaks">
               <TweakSection label="Layout">
                 <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)} options={[{ value: 'balanced', label: 'Balanced' }, { value: 'compact', label: 'Compact' }]}/>

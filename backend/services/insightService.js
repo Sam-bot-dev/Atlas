@@ -22,7 +22,7 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
  * Generate insights for a business
  * @param {string} businessId
  * @param {Object} metrics - calculated metrics from metricService
- * @returns {Promise<Array>} insight cards
+ * @returns {Promise<any[]>} insight cards
  */
 async function generateInsights(businessId, metrics) {
   try {
@@ -50,6 +50,9 @@ async function generateInsights(businessId, metrics) {
 
 /**
  * Gather all contextual data for the LLM
+ * @param {string} businessId
+ * @param {any} business
+ * @param {any} metrics
  */
 async function gatherBusinessContext(businessId, business, metrics) {
   const [orders, traffic, reviews, inventory, customers] = await Promise.all([
@@ -77,8 +80,8 @@ async function gatherBusinessContext(businessId, business, metrics) {
   ]);
 
   // Extract patterns
-  const recentNegativeReviews = reviews.filter((r) => r.rating <= 2);
-  const lowStockItems = inventory.filter((i) => i.quantityOnHand <= i.reorderPoint);
+  const recentNegativeReviews = reviews.filter((/** @type {any} */ r) => r.rating <= 2);
+  const lowStockItems = inventory.filter((/** @type {any} */ i) => i.quantityOnHand <= i.reorderPoint);
 
   // Get current time patterns
   const now = new Date();
@@ -90,17 +93,18 @@ async function gatherBusinessContext(businessId, business, metrics) {
   let goals = [];
   try {
     goals = JSON.parse(business.goals || '[]');
-  } catch {}
+  } catch {
+    // invalid JSON — default to empty goals
+  }
 
-  return {
-    business: {
-      id: businessId,
-      name: business.name,
-      type: business.type || business.category || 'Business',
-      location: business.location || business.address || 'India',
-      category: business.category,
-      goals,
-    },
+   return {
+     business: {
+       id: businessId,
+       name: business.name,
+       type: business.category || 'Business',
+       location: business.location || business.address || 'India',
+       goals,
+     },
 
     metrics,
     patterns: {
@@ -108,18 +112,18 @@ async function gatherBusinessContext(businessId, business, metrics) {
       avgOrderValue:
         orders.length > 0
           ? Math.round(
-              orders.reduce((sum, o) => sum + (o.total || 0), 0) /
+              orders.reduce((/** @type {number} */ sum, /** @type {any} */ o) => sum + (o.total || 0), 0) /
                 orders.length,
             )
           : 0,
       lowStockItemsCount: lowStockItems.length,
       negativeReviewsCount: recentNegativeReviews.length,
       totalCustomers: customers.length,
-      repeatCustomerCount: customers.filter((c) => c.ordersCount > 1).length,
+      repeatCustomerCount: customers.filter((/** @type {any} */ c) => c.ordersCount > 1).length,
       avgRating:
         reviews.length > 0
           ? Math.round(
-              (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) *
+              (reviews.reduce((/** @type {number} */ sum, /** @type {any} */ r) => sum + r.rating, 0) / reviews.length) *
                 10,
             ) / 10
           : 0,
@@ -148,12 +152,15 @@ async function gatherBusinessContext(businessId, business, metrics) {
 function getMockEnvironmentalContext(location = '') {
   const month = new Date().getMonth();
   const isSummer = month >= 2 && month <= 5;
-  const isMonsoon = month >= 6 && month <= 9;
+  // Fix #53: month is 0-indexed; monsoon = June(5)–Sep(8), not 6–9
+  const isMonsoon = month >= 5 && month <= 8;
   
   let temp = isSummer ? 38 : (isMonsoon ? 28 : 24);
   let condition = isSummer ? 'Sunny' : (isMonsoon ? 'Rainy' : 'Clear');
   
-  if (location.toLowerCase().includes('bangalore')) temp -= 5;
+  // Fix #54: official spelling is 'bengaluru'; also keep 'bangalore' for legacy data
+  const loc = location.toLowerCase();
+  if (loc.includes('bengaluru') || loc.includes('bangalore')) temp -= 5;
   if (location.toLowerCase().includes('delhi') && isSummer) temp += 5;
 
   return {
@@ -165,6 +172,7 @@ function getMockEnvironmentalContext(location = '') {
 
 /**
  * Call Groq LLM to generate insights
+ * @param {any} context
  */
 async function generateInsightsViaLLM(context) {
   if (!GROQ_API_KEY) {
@@ -206,7 +214,8 @@ async function generateInsightsViaLLM(context) {
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 1024,
+        // Fix #55: 1024 could truncate 5 detailed insights (~200 tok each). Use 2048.
+        max_tokens: 2048,
       }),
     });
 
@@ -217,14 +226,41 @@ async function generateInsightsViaLLM(context) {
     const data = await response.json();
     const content = data.choices[0].message.content;
 
-    // Parse JSON from response
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      throw new Error('Could not extract JSON from LLM response');
+    // Parse JSON from response — handle various LLM formatting quirks
+    let insights = [];
+    try {
+      // 1. Try direct parse
+      insights = JSON.parse(content);
+    } catch {
+      // 2. Try stripping markdown fences
+      const stripped = content.replace(/```json|```/g, '').trim();
+      try {
+        insights = JSON.parse(stripped);
+      } catch {
+        // 3. Try regex extraction for the first array
+        const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          try {
+            insights = JSON.parse(jsonMatch[0]);
+          } catch {
+            throw new Error('LLM returned invalid JSON structure');
+          }
+        } else {
+          throw new Error('Could not find JSON array in LLM response');
+        }
+      }
     }
-
-    const insights = JSON.parse(jsonMatch[0]);
-    return Array.isArray(insights) ? insights : [insights];
+    
+    // Ensure we always return an array
+    const finalInsights = Array.isArray(insights) ? insights : [insights];
+    
+    // Fix #10: Validate insight objects before returning
+    return finalInsights.filter(i => i && i.title && i.body).map(i => ({
+      title: String(i.title).substring(0, 100),
+      body: String(i.body).substring(0, 500),
+      severity: ['positive', 'negative', 'warning', 'info'].includes(i.severity) ? i.severity : 'info',
+      evidence: Array.isArray(i.evidence) ? i.evidence.map((/** @type {any} */ e) => String(e).substring(0, 30)) : [],
+    }));
   } catch (error) {
     console.error('LLM insight generation error:', error);
     return generateFallbackInsights(context);
@@ -233,27 +269,31 @@ async function generateInsightsViaLLM(context) {
 
 /**
  * Fallback insights when LLM is unavailable
+ * @param {any} context
  */
 function generateFallbackInsights(context) {
   const insights = [];
   const { metrics, patterns, timeContext, recentIssues } = context;
 
-  // Insight 1: Revenue trend
-  if (metrics.revenue.delta > 15) {
-    insights.push({
-      title: 'Revenue Growing Strong',
-      body: `Your revenue increased by ${metrics.revenue.delta}% this month. Strong customer demand is driving sales.`,
-      severity: 'positive',
-      evidence: ['revenue_surge', 'growth_trend'],
-    });
-  } else if (metrics.revenue.delta < -15) {
-    insights.push({
-      title: 'Revenue Decline Detected',
-      body: `Revenue dropped ${Math.abs(metrics.revenue.delta)}% this month. Consider seasonal factors or reduced marketing reach.`,
-      severity: 'negative',
-      evidence: ['revenue_drop', 'low_orders'],
-    });
-  }
+// Insight 1: Revenue trend
+   if (Math.abs(metrics.revenue.delta) >= 5) {
+     insights.push({
+       title: metrics.revenue.delta > 0 ? 'Revenue Growing Strong' : 'Revenue Decline Detected',
+       body: metrics.revenue.delta > 0
+         ? `Your revenue increased by ${metrics.revenue.delta}% this month. Strong customer demand is driving sales.`
+         : `Revenue dropped ${Math.abs(metrics.revenue.delta)}% this month. Consider seasonal factors or reduced marketing reach.`,
+       severity: metrics.revenue.delta > 0 ? 'positive' : 'negative',
+       evidence: metrics.revenue.delta > 0 ? ['revenue_surge', 'growth_trend'] : ['revenue_drop', 'low_orders'],
+     });
+   } else {
+     // Fix #72: Always show a revenue insight for normal days (within ±15%)
+     insights.push({
+       title: 'Revenue Stable',
+       body: `Your revenue is stable with ${metrics.revenue.delta}% change. Business conditions are consistent with recent trends.`,
+       severity: 'info',
+       evidence: ['stable_revenue', 'normal_performance'],
+     });
+   }
 
   // Insight 2: Inventory
   if (recentIssues.lowStockItems.length > 2) {
@@ -307,6 +347,8 @@ function generateFallbackInsights(context) {
 
 /**
  * Save insights to the database
+ * @param {string} businessId
+ * @param {any[]} insights
  */
 async function saveInsights(businessId, insights) {
   // Delete only regular insights, preserve anomalies
@@ -334,6 +376,7 @@ async function saveInsights(businessId, insights) {
 
 /**
  * Get season from month
+ * @param {number} month
  */
 function getSeason(month) {
   // India-specific seasons
@@ -345,6 +388,7 @@ function getSeason(month) {
 
 /**
  * Get day name
+ * @param {number} dayOfWeek
  */
 function getDayName(dayOfWeek) {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -352,7 +396,48 @@ function getDayName(dayOfWeek) {
 }
 
 /**
+ * Sanitize user input to prevent prompt injection
+ * Removes attempts to override system instructions or inject malicious content
+ * @param {string} query
+ */
+function sanitizeQuery(query) {
+  if (!query || typeof query !== 'string') return '';
+
+  let clean = query.trim();
+
+  // Limit length to prevent abuse (max 500 chars)
+  if (clean.length > 500) {
+    clean = clean.substring(0, 500);
+  }
+
+  // Block common prompt injection patterns
+  const injectionPatterns = [
+    /ignore\s+(all\s+)?previous\s+instructions/i,
+    /disregard\s+(the\s+)?(above|previous)/i,
+    /system\s*:/i,
+    /role\s*:/i,
+    /you\s+are\s+now/i,
+    /new\s+system\s+prompt/i,
+    /<\/?system>/i,
+    /<\/?role>/i,
+    /override/i,
+    /bypass/i,
+  ];
+
+  for (const pattern of injectionPatterns) {
+    if (pattern.test(clean)) {
+      console.warn('Prompt injection attempt detected and blocked:', clean.substring(0, 100));
+      return 'Invalid query detected. Please ask a business question.';
+    }
+  }
+
+  return clean;
+}
+
+/**
  * Answer a user query about their business using LLM
+ * @param {string} businessId
+ * @param {string} query
  */
 async function askAtlas(businessId, query) {
   try {
@@ -363,7 +448,18 @@ async function askAtlas(businessId, query) {
 
     if (!business) throw new Error('Business not found');
 
-    const metricsMap = business.metrics.reduce((acc, m) => ({ ...acc, [m.key]: m }), {});
+     // Fix #96: sanitize user input to prevent prompt injection
+     const safeQuery = sanitizeQuery(query);
+     if (!safeQuery) {
+       return { answer: "I couldn't understand that query. Please rephrase your question.", isFallback: true };
+     }
+
+    // Fix #99: askAtlas was passing raw Metric[] objects (from DB) while generateInsights
+    // passes pre-calculated summary values. Normalize to the same { value, delta, label } shape.
+    const metricsMap = business.metrics.reduce((/** @type {any} */ acc, /** @type {any} */ m) => ({
+      ...acc,
+      [m.key]: { value: m.value, delta: m.delta, label: m.label || m.key, unit: m.unit || '', period: m.period || '' }
+    }), {});
     const context = await gatherBusinessContext(businessId, business, metricsMap);
 
     if (!GROQ_API_KEY) {
@@ -385,12 +481,15 @@ async function askAtlas(businessId, query) {
     const userPrompt = `
 Business: ${context.business.name} (${context.business.type})
 Location: ${context.business.location}
-Current Metrics: Revenue ${context.metrics.revenue?.value || 0}, Orders ${context.metrics.orders?.value || 0}
-Recent Insights: ${business.insights.map(i => i.title).join(', ')}
+Current Metrics: Revenue ${context.metrics.revenue?.unit || ''}${context.metrics.revenue?.value ?? 0} (${context.metrics.revenue?.delta >= 0 ? '+' : ''}${context.metrics.revenue?.delta ?? 0}%), Orders ${context.metrics.orders?.value ?? 0} (${context.metrics.orders?.delta >= 0 ? '+' : ''}${context.metrics.orders?.delta ?? 0}%), Retention ${context.metrics.retention?.value ?? 0}%
+Patterns: Avg Order ₹${context.patterns.avgOrderValue}, Repeat Customers ${context.patterns.repeatCustomerCount}/${context.patterns.totalCustomers}, Avg Rating ${context.patterns.avgRating}/5
+Recent Issues: ${context.recentIssues.lowStockItems.length} low stock, ${context.recentIssues.negativeReviews.length} negative reviews
+Environment: ${context.environmental.temp}, ${context.environmental.condition} (${context.environmental.impact})
+Recent Insights: ${business.insights.map((/** @type {any} */ i) => i.title).join(', ')}
 
-User Question: "${query}"
+User Question: "${safeQuery}"
 
-Provide a data-backed answer as Atlas.`;
+Provide a data-backed answer as Atlas. Reference specific numbers from the metrics above where relevant.`;
 
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',

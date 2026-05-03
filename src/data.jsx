@@ -1,11 +1,11 @@
 // Mock data — 6 Indian demo businesses
 
 const BUSINESSES = {
-  baker: {
-    id: 'baker',
-    name: "Priya's Bakes",
-    type: 'Home Baker',
-    location: 'Pune, Maharashtra',
+   baker: {
+     id: 'baker',
+     name: "Priya's Bakes",
+     category: 'Home Baker',
+     location: 'Pune, Maharashtra',
     initials: 'PB',
     color: '#a16207',
     owner: 'Priya',
@@ -93,7 +93,7 @@ const BUSINESSES = {
     automations: [
       { id: 'a1', trigger: 'Ingredient stock below 5-day threshold', action: 'Send WhatsApp to supplier for reorder', status: 'active', last: '3 days ago' },
       { id: 'a2', trigger: 'New Google review under 4 stars', action: 'Draft personalised reply for approval', status: 'active', last: '8 days ago' },
-      { id: 'a3', trigger: 'Customer last ordered > 30 days ago', action: 'Send "miss you" WhatsApp with seasonal special', status: 'paused', last: 'never' },
+      { id: 'a3', trigger: 'Customer last ordered > 30 days ago', action: 'Send "miss you" WhatsApp with seasonal special', status: 'disabled', last: 'never' },
     ],
     suggestedAutomations: [
       { trigger: 'Weekend demand forecast > 65 orders', action: 'Notify Thursday to scale prep batches' },
@@ -108,11 +108,11 @@ const BUSINESSES = {
     ],
   },
 
-  retail: {
-    id: 'retail',
-    name: 'Vrindavan Textiles',
-    type: 'Retail Shop',
-    location: 'Surat, Gujarat',
+   retail: {
+     id: 'retail',
+     name: 'Vrindavan Textiles',
+     category: 'Retail Shop',
+     location: 'Surat, Gujarat',
     initials: 'VT',
     color: '#1e40af',
     owner: 'Rajesh',
@@ -180,7 +180,7 @@ const BUSINESSES = {
     ],
     automations: [
       { id: 'a1', trigger: 'SKU on shelf > 60 days', action: 'Flag for markdown review in daily report', status: 'active', last: 'yesterday' },
-      { id: 'a2', trigger: 'Daily revenue 20% below forecast', action: 'Draft WhatsApp offer for loyal customers', status: 'paused', last: 'never' },
+      { id: 'a2', trigger: 'Daily revenue 20% below forecast', action: 'Draft WhatsApp offer for loyal customers', status: 'disabled', last: 'never' },
       { id: 'a3', trigger: 'New review posted', action: 'Notify and draft reply', status: 'active', last: '2 days ago' },
     ],
     suggestedAutomations: [
@@ -196,11 +196,11 @@ const BUSINESSES = {
     ],
   },
 
-  pharmacy: {
-    id: 'pharmacy',
-    name: 'Swasthya Medicals',
-    type: 'Pharmacy',
-    location: 'Ahmedabad, Gujarat',
+   pharmacy: {
+     id: 'pharmacy',
+     name: 'Swasthya Medicals',
+     category: 'Pharmacy',
+     location: 'Ahmedabad, Gujarat',
     initials: 'SM',
     color: '#15803d',
     owner: 'Dr. Anjali',
@@ -269,7 +269,7 @@ const BUSINESSES = {
     automations: [
       { id: 'a1', trigger: 'Refill due in 3 days', action: 'Send WhatsApp reminder to patient', status: 'active', last: 'today' },
       { id: 'a2', trigger: 'Schedule H drug below reorder level', action: 'Alert pharmacist and draft reorder', status: 'active', last: '2 weeks ago' },
-      { id: 'a3', trigger: 'Negative Google review', action: 'Draft empathetic reply for approval', status: 'paused', last: 'never' },
+      { id: 'a3', trigger: 'Negative Google review', action: 'Draft empathetic reply for approval', status: 'disabled', last: 'never' },
     ],
     suggestedAutomations: [
       { trigger: 'Monsoon forecast for Ahmedabad (June 15+)', action: 'Alert team to feature ORS and monsoon pack at counter' },
@@ -283,11 +283,11 @@ const BUSINESSES = {
     ],
   },
 
-  cafe: {
-    id: 'cafe',
-    name: 'Chai Trunk',
-    type: 'Cafe',
-    location: 'Bengaluru, Karnataka',
+   cafe: {
+     id: 'cafe',
+     name: 'Chai Trunk',
+     category: 'Cafe',
+     location: 'Bengaluru, Karnataka',
     initials: 'CT',
     color: '#7c2d12',
     owner: 'Arjun',
@@ -371,11 +371,11 @@ const BUSINESSES = {
     ],
   },
 
-  trade: {
-    id: 'trade',
-    name: 'Bharat Global Exports',
-    type: 'Import/Export',
-    location: 'Mumbai, Maharashtra',
+   trade: {
+     id: 'trade',
+     name: 'Bharat Global Exports',
+     category: 'Import/Export',
+     location: 'Mumbai, Maharashtra',
     initials: 'BG',
     color: '#1e40af',
     owner: 'Vikram',
@@ -444,7 +444,7 @@ const BUSINESSES = {
     automations: [
       { id: 'a1', trigger: 'Shipment ETA delayed > 48 hours', action: 'Notify client and draft revised ETA email', status: 'active', last: 'yesterday' },
       { id: 'a2', trigger: 'USD/INR moves > 1.5% in a day', action: 'Alert ops and draft hedging recommendation', status: 'active', last: '3 weeks ago' },
-      { id: 'a3', trigger: 'Client order cadence drops > 30%', action: 'Add to sales follow-up list', status: 'paused', last: 'never' },
+      { id: 'a3', trigger: 'Client order cadence drops > 30%', action: 'Add to sales follow-up list', status: 'disabled', last: 'never' },
     ],
     suggestedAutomations: [
       { trigger: 'Container booking confirmed at JNPT', action: 'Auto-generate client tracking update with ETA' },
@@ -459,11 +459,11 @@ const BUSINESSES = {
     ],
   },
 
-  service: {
-    id: 'service',
-    name: 'Skyline Interiors',
-    type: 'Service Business',
-    location: 'Gurugram, Haryana',
+   service: {
+     id: 'service',
+     name: 'Skyline Interiors',
+     category: 'Service Business',
+     location: 'Gurugram, Haryana',
     initials: 'SI',
     color: '#15803d',
     owner: 'Neha',
@@ -532,7 +532,7 @@ const BUSINESSES = {
     automations: [
       { id: 'a1', trigger: 'Project marked complete', action: 'Send 1-week follow-up + Google review request', status: 'active', last: '2 days ago' },
       { id: 'a2', trigger: 'Quote sent', action: 'Draft 3-day and 7-day WhatsApp follow-ups', status: 'active', last: 'today' },
-      { id: 'a3', trigger: 'New 5-star Google review', action: 'Thank client, request Instagram post with permission', status: 'paused', last: 'never' },
+      { id: 'a3', trigger: 'New 5-star Google review', action: 'Thank client, request Instagram post with permission', status: 'disabled', last: 'never' },
     ],
     suggestedAutomations: [
       { trigger: 'Crew utilisation > 95% for 7 days', action: 'Alert: slow new project intake or begin hiring' },
@@ -549,12 +549,12 @@ const BUSINESSES = {
 };
 
 const BUSINESS_LIST = [
-  { id: 'baker',    name: 'Home Baker',      desc: 'Custom cakes & baked goods, Pune',      icon: 'baker'    },
-  { id: 'retail',   name: 'Retail Shop',     desc: 'Textiles & garments, Surat',            icon: 'retail'   },
-  { id: 'pharmacy', name: 'Pharmacy',        desc: 'Medical store, Ahmedabad',              icon: 'pharmacy' },
-  { id: 'trade',    name: 'Import / Export', desc: 'Global freight & exports, Mumbai',      icon: 'trade'    },
-  { id: 'service',  name: 'Service Business',desc: 'Interiors & renovation, Gurugram',      icon: 'service'  },
-  { id: 'cafe',     name: 'Cafe',            desc: 'Chai, filter coffee & snacks, Bengaluru',icon: 'cafe'   },
+  { id: 'baker',    name: "Priya's Bakes",       desc: 'Custom cakes & baked goods, Pune',        icon: 'baker'    },
+  { id: 'retail',   name: 'Vrindavan Textiles', desc: 'Textiles & garments, Surat',              icon: 'retail'   },
+  { id: 'pharmacy', name: 'Swasthya Medicals',  desc: 'Medical store, Ahmedabad',                icon: 'pharmacy' },
+  { id: 'trade',    name: 'Bharat Global Exports', desc: 'Global freight & exports, Mumbai',     icon: 'trade'    },
+  { id: 'service',  name: 'Skyline Interiors',  desc: 'Interiors & renovation, Gurugram',        icon: 'service'  },
+  { id: 'cafe',     name: 'Chai Trunk',          desc: 'Chai, filter coffee & snacks, Bengaluru', icon: 'cafe'   },
 ];
 
 export const ATLAS_BUSINESSES = Object.fromEntries(

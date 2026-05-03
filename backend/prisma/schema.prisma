@@ -1,13 +1,12 @@
 // Atlas — Prisma Schema
-// Persistent SQLite database for Phase 2 (swappable to Postgres later)
+// PostgreSQL database — persistent across Render deploys
 
 generator client {
-  provider   = "prisma-client-js"
-  engineType = "library"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ─── Users ───────────────────────────────────────────────────────
@@ -27,8 +26,7 @@ model User {
 model Business {
   id       String @id @default(cuid())
   name     String
-  category String
-  type     String @default("") // E.g. 'Home Baker', 'Retail Shop'
+  category String // E.g. 'Home Baker', 'Retail Shop' — primary business type field
   location String @default("")
   owner    String @default("")
   initials String @default("")
@@ -137,6 +135,7 @@ model Order {
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, externalId])
+  @@index([businessId])
 }
 
 model Product {
@@ -157,6 +156,7 @@ model Product {
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, sku], name: "unique_product_sku")
+  @@index([businessId])
 }
 
 model Customer {
@@ -177,6 +177,7 @@ model Customer {
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, externalId])
+  @@index([businessId])
 }
 
 model Review {
@@ -195,6 +196,7 @@ model Review {
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, body, rating], name: "unique_review")
+  @@index([businessId])
 }
 
 model InventoryItem {
@@ -213,6 +215,7 @@ model InventoryItem {
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, sku], name: "unique_inventory_sku")
+  @@index([businessId])
 }
 
 model TrafficPoint {
@@ -230,6 +233,7 @@ model TrafficPoint {
   source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, occurredAt, channel], name: "unique_traffic_point")
+  @@index([businessId])
 }
 
 // ─── Metrics ─────────────────────────────────────────────────────

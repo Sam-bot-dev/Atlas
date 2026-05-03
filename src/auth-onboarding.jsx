@@ -14,6 +14,11 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
       alert('Please enter both email and password.');
       return;
     }
+    // Fix #106: enforce minimum password length (backend requires ≥8)
+    if (password.length < 8) {
+      alert('Password must be at least 8 characters long.');
+      return;
+    }
     setLoading(true);
     try {
       const user = await AtlasAPI.auth.login(email, password);
@@ -32,6 +37,26 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
     } catch (e) {
       alert('Google Login failed: ' + e.message);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      alert('Enter your email address first, then click Forgot.');
+      return;
+    }
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      const { auth } = await import('./firebase');
+      await sendPasswordResetEmail(auth, email);
+      alert(`Password reset email sent to ${email}`);
+    } catch (e) {
+      alert('Failed to send reset email: ' + e.message);
+    }
+  };
+
+  // Fix #45: pressing Enter in either field should submit
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleLogin();
   };
 
   return (
@@ -58,14 +83,14 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Email</label>
-              <input className="input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}/>
+              <input className="input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKeyDown}/>
             </div>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)' }}>Password</label>
-                <a style={{ fontSize: 12, color: 'var(--ink-3)', cursor: 'pointer' }}>Forgot?</a>
+                <a style={{ fontSize: 12, color: 'var(--ink-3)', cursor: 'pointer' }} onClick={handleForgotPassword}>Forgot?</a>
               </div>
-              <input className="input" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}/>
+              <input className="input" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKeyDown}/>
             </div>
             <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} onClick={handleLogin} disabled={loading}>
               {loading ? 'Logging in...' : 'Log in'}
@@ -82,34 +107,37 @@ export const Onboarding = ({ onComplete, onBack }) => {
   const [step, setStep] = React.useState(0);
   const [detecting, setDetecting] = React.useState(false);
   const [detectDone, setDetectDone] = React.useState(false);
+  const [detectResult, setDetectResult] = React.useState(null); // Fix #46/#47
   const [bizName, setBizName] = React.useState("Priya's Bakes");
   const [bizAddr, setBizAddr] = React.useState('Shop 4, Aundh Market, Pune, Maharashtra 411007');
   const [bizType, setBizType] = React.useState('Home Baker');
   const [goals, setGoals] = React.useState(['rev', 'repeat']);
   const [uploads, setUploads] = React.useState([]);
   const fileInputRef = React.useRef(null);
-  const [integrations, setIntegrations] = React.useState({ gbiz: true, square: false, ig: false, shop: false });
+  const [integrations, setIntegrations] = React.useState({ gbiz: true, square: false, ig: false, shop: false, stripe: false, quickbooks: false });
   
   // New account state
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
 
-  // Persist state
-  React.useEffect(() => {
-    const saved = sessionStorage.getItem(PERSIST_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setStep(parsed.step || 0);
-        setBizName(parsed.bizName || "Priya's Bakes");
-        setBizAddr(parsed.bizAddr || "");
-        setBizType(parsed.bizType || "Business");
-        setGoals(parsed.goals || []);
-        setEmail(parsed.email || "");
-        setDetectDone(parsed.step === 0 ? false : (parsed.detectDone || false));
-      } catch (e) {}
+// Persist state
+React.useEffect(() => {
+  const saved = sessionStorage.getItem(PERSIST_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      setStep(parsed.step || 0);
+      setBizName(parsed.bizName || "Priya's Bakes");
+      setBizAddr(parsed.bizAddr || "");
+      setBizType(parsed.bizType || "Business");
+      setGoals(parsed.goals || []);
+      setEmail(parsed.email || "");
+      setDetectDone(parsed.step === 0 ? false : (parsed.detectDone || false));
+    } catch {
+      // Ignore parse errors, state remains unchanged
     }
-  }, []);
+  }
+}, []);
 
   React.useEffect(() => {
     const state = { step, bizName, bizAddr, bizType, goals, email, detectDone };
@@ -126,32 +154,56 @@ export const Onboarding = ({ onComplete, onBack }) => {
   ];
 
   const next = async () => {
-    if (step === 0 && !detectDone) {
-      setStep(1);
-      setDetecting(true);
-      AtlasAPI.businesses.detect(bizName, bizAddr).then((data) => {
-        setDetecting(false);
-        setDetectDone(true);
-        if (data && data.category) setBizType(data.category);
-      }).catch(e => {
-        setDetecting(false); 
-        setDetectDone(true);
-      });
-      return;
+    if (step === 0) {
+      // Fix #48: block continue with empty business name
+      if (!bizName.trim()) {
+        alert('Please enter a business name before continuing.');
+        return;
+      }
+      if (!detectDone) {
+        setStep(1);
+        setDetecting(true);
+        AtlasAPI.businesses.detect(bizName, bizAddr).then((data) => {
+          setDetecting(false);
+          setDetectDone(true);
+          setDetectResult(data); // Fix #46/#47: store full result including detectedVia
+          if (data && data.category) setBizType(data.category);
+        }).catch(() => {
+          setDetecting(false);
+          setDetectDone(true);
+        });
+        return;
+      }
     }
     
     if (step < 4) {
       setStep(step + 1);
-    } else {
-      if (!email || !password) {
-        alert('Please enter your email and password');
-        return;
-      }
-      setDetecting(true);
+      } else {
+        if (!email || !password) {
+          alert('Please enter your email and password');
+          return;
+        }
+        // Fix #106 (part 2): signup step also enforces minimum password length
+        if (password.length < 8) {
+          alert('Password must be at least 8 characters long.');
+          return;
+        }
+        setDetecting(true);
       try {
         const userName = bizName.split('\'s')[0] || 'Owner'; // Extract personal name e.g. "Priya" from "Priya's Bakes"
         const user = await AtlasAPI.auth.signup({ email, password, name: userName });
-        await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr, goals: goals });
+        const biz = await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr, goals });
+
+        // Bug #7 fix: now that we have a real bizId, upload any staged files from step 2
+        if (biz?.id && uploads.length > 0) {
+          for (const u of uploads) {
+            if (u.file) {
+              try { await AtlasAPI.uploads.upload(biz.id, u.file); }
+              catch (uploadErr) { console.warn('File upload skipped:', u.name, uploadErr.message); }
+            }
+          }
+        }
+
         sessionStorage.removeItem(PERSIST_KEY);
         onComplete(user);
       } catch (e) {
@@ -236,15 +288,19 @@ export const Onboarding = ({ onComplete, onBack }) => {
                       <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{bizAddr}</div>
                     </div>
                   </div>
-                  <span className="badge badge-positive"><Icon name="check" size={10} strokeWidth={2.5}/> Smart detected</span>
+                  {/* Fix #47: show 'Smart detected' only when Google Places matched; 'Pattern matched' for regex */}
+                  <span className={`badge ${detectResult?.detectedVia === 'google_places' ? 'badge-positive' : ''}`}>
+                    <Icon name="check" size={10} strokeWidth={2.5}/> {detectResult?.detectedVia === 'google_places' ? 'Smart detected' : 'Pattern matched'}
+                  </span>
                 </div>
                 <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--ink-3)' }}>Type</span>
                     <input style={{ background: 'transparent', border: 'none', textAlign: 'right', fontWeight: 500, color: 'inherit' }} value={bizType} onChange={e => setBizType(e.target.value)}/>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Channel</span><span>WhatsApp orders + local delivery</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Est. monthly revenue</span><span className="mono">₹80K–1.5L</span></div>
+                  {/* Fix #46: show actual API result for channel/revenue instead of hardcoded values */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Channel</span><span>{detectResult?.channel || 'WhatsApp orders + local delivery'}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Est. monthly revenue</span><span className="mono">{detectResult?.estimatedRevenue || '₹80K–1.5L'}</span></div>
                 </div>
               </div>
             </>
@@ -259,35 +315,54 @@ export const Onboarding = ({ onComplete, onBack }) => {
                 <div style={{ fontSize: 14, fontWeight: 500, marginTop: 12, marginBottom: 4 }}>Drop files here or click to upload</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>PDF · CSV · PNG/JPG · XLSX · up to 50MB</div>
               </div>
-              <input ref={fileInputRef} type="file" multiple accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={async (e) => {
+              {/* Bug #7 fix: no bizId exists yet (business not created until final step).
+                  Store File objects in state; upload them after business creation below. */}
+              <input ref={fileInputRef} type="file" multiple accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={(e) => {
                 const files = Array.from(e.target.files);
-                for (const file of files) {
-                  try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const res = await AtlasAPI.uploads.create(bizName || 'New Business', formData);
-                    setUploads(prev => [...prev, { name: file.name, kind: file.name.split('.').pop(), size: (file.size / 1024).toFixed(0) + ' KB', id: res.id }]);
-                  } catch (err) {
-                    alert('Upload failed: ' + file.name);
-                  }
-                }
+                setUploads(prev => [
+                  ...prev,
+                  ...files.map(file => ({
+                    name: file.name,
+                    kind: file.name.split('.').pop().toUpperCase(),
+                    size: (file.size / 1024).toFixed(0) + ' KB',
+                    file, // keep the raw File object for upload after business creation
+                  }))
+                ]);
               }} />
-              <div className="eyebrow" style={{ marginBottom: 12 }}>Connect a system</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                {[
-                  { id: 'gbiz', name: 'Google Business', sub: 'Reviews, traffic', mock: false },
-                  { id: 'square', name: 'Square POS', sub: 'Sales, products', mock: true },
-                ].map(intg => (
-                  <button key={intg.id} className="card" style={{
-                    padding: 14, textAlign: 'left', cursor: 'pointer',
-                    border: integrations[intg.id] ? '1px solid var(--ink-1)' : '1px solid var(--border)',
-                    background: integrations[intg.id] ? 'var(--bg-subtle)' : 'var(--bg-elevated)',
-                  }} onClick={() => setIntegrations({ ...integrations, [intg.id]: !integrations[intg.id] })}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{intg.name}</div>
-                      {integrations[intg.id] && <Icon name="check" size={14} color="var(--ink-1)"/>}
+              {/* Show staged files so the user gets feedback */}
+              {uploads.length > 0 && (
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {uploads.map((u, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, fontSize: 12 }}>
+                      <Icon name="file" size={13} color="var(--ink-3)"/>
+                      <span style={{ flex: 1, color: 'var(--ink-2)' }}>{u.name}</span>
+                      <span className="badge" style={{ fontSize: 10 }}>{u.kind}</span>
+                      <span style={{ color: 'var(--ink-4)' }}>{u.size}</span>
                     </div>
-                  </button>
+                  ))}
+                </div>
+              )}
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Connect a system</div>
+              {/* Expand onboarding integrations (#85) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  { id: 'gbiz', name: 'Google Business', icon: 'globe' },
+                  { id: 'square', name: 'Square POS', icon: 'database' },
+                  { id: 'ig', name: 'Instagram', icon: 'image' },
+                  { id: 'shop', name: 'Shopify', icon: 'shopping-bag' },
+                  { id: 'stripe', name: 'Stripe', icon: 'credit-card' },
+                  { id: 'quickbooks', name: 'QuickBooks', icon: 'file-text' },
+                ].map(int => (
+                  <div key={int.id} onClick={() => setIntegrations(prev => ({ ...prev, [int.id]: !prev[int.id] }))} style={{
+                    padding: 12, borderRadius: 8, border: '1px solid',
+                    borderColor: integrations[int.id] ? 'var(--ink-1)' : 'var(--border)',
+                    background: integrations[int.id] ? 'var(--bg-subtle)' : 'transparent',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                    transition: 'all 120ms',
+                  }}>
+                    <Icon name={int.icon} size={14} color={integrations[int.id] ? 'var(--ink-1)' : 'var(--ink-3)'}/>
+                    <span style={{ fontSize: 13, fontWeight: integrations[int.id] ? 600 : 400 }}>{int.name}</span>
+                  </div>
                 ))}
               </div>
             </>

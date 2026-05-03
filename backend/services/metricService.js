@@ -176,36 +176,22 @@ async function calculateConversionRate(businessId) {
  * Inventory Health: % of items in stock vs low stock
  */
 async function calculateInventoryHealth(businessId) {
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-
-  const [currentItems, prevItems] = await Promise.all([
-    prisma.inventoryItem.findMany({ where: { businessId } }),
-    prisma.inventoryItem.findMany({ 
-      where: { 
-        businessId, 
-        createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo }
-      } 
-    }),
-  ]);
+  const currentItems = await prisma.inventoryItem.findMany({ where: { businessId } });
 
   const currentTotal = currentItems.length || 1;
   const currentInStock = currentItems.filter((item) => item.quantityOnHand > item.reorderPoint).length;
   const currentHealth = (currentInStock / currentTotal) * 100;
 
-  const prevTotal = prevItems.length || 1;
-  const prevInStock = prevItems.filter((item) => item.quantityOnHand > item.reorderPoint).length;
-  const prevHealth = prevTotal > 0 ? (prevInStock / prevTotal) * 100 : 0;
-
-  const delta = prevHealth > 0 ? ((currentHealth - prevHealth) / prevHealth) * 100 : 0;
+  // Delta: compare in-stock vs low-stock ratio (no meaningful "previous period" for inventory snapshot)
+  const lowStockRatio = ((currentTotal - currentInStock) / currentTotal) * 100;
+  const delta = lowStockRatio > 20 ? -Math.round(lowStockRatio / 5) : Math.round((100 - lowStockRatio) / 20);
 
   return {
     value: Math.round(currentHealth),
     delta: Math.round(delta * 100) / 100,
     label: `${Math.round(currentHealth)}% in stock`,
     unit: '%',
-    period: 'vs last 30 days',
+    period: 'current snapshot',
   };
 }
 
@@ -213,36 +199,22 @@ async function calculateInventoryHealth(businessId) {
  * Customer Retention: repeat customers / total customers
  */
 async function calculateRetention(businessId) {
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const customers = await prisma.customer.findMany({ where: { businessId } });
 
-  const [currentCustomers, prevCustomers] = await Promise.all([
-    prisma.customer.findMany({ where: { businessId } }),
-    prisma.customer.findMany({ 
-      where: { 
-        businessId, 
-        createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo }
-      } 
-    }),
-  ]);
+  const repeatCustomers = customers.filter((c) => c.ordersCount > 1).length;
+  const totalCustomers = customers.length || 1;
+  const retention = (repeatCustomers / totalCustomers) * 100;
 
-  const currentRepeat = currentCustomers.filter((c) => c.ordersCount > 1).length;
-  const currentTotal = currentCustomers.length || 1;
-  const currentRetention = (currentRepeat / currentTotal) * 100;
-
-  const prevRepeat = prevCustomers.filter((c) => c.ordersCount > 1).length;
-  const prevTotal = prevCustomers.length || 1;
-  const prevRetention = (prevRepeat / prevTotal) * 100;
-
-  const delta = prevRetention > 0 ? ((currentRetention - prevRetention) / prevRetention) * 100 : 0;
+  // New customers (ordersCount === 1) vs repeat — delta shows trend direction
+  const newCustomers = customers.filter((c) => c.ordersCount === 1).length;
+  const delta = totalCustomers > 1 ? Math.round(((repeatCustomers - newCustomers) / totalCustomers) * 10) : 0;
 
   return {
-    value: Math.round(currentRetention),
-    delta: Math.round(delta * 100) / 100,
-    label: `${Math.round(currentRetention)}% repeat`,
+    value: Math.round(retention),
+    delta,
+    label: `${Math.round(retention)}% repeat`,
     unit: '%',
-    period: 'vs last 30 days',
+    period: 'all time',
   };
 }
 

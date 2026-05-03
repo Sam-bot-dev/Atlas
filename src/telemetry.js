@@ -15,16 +15,18 @@ export const initTelemetry = () => {
   }
 };
 
-export const captureEvent = (eventName, properties = {}) => {
+export const captureEvent = (eventName, _properties = {}) => {
   if (import.meta.env.PROD) {
-    // console.log(`[Event] ${eventName}`, properties);
-    // posthog.capture(eventName, properties);
+    void _properties;
+    // console.log(`[Event] ${eventName}`, _properties);
+    // posthog.capture(eventName, _properties);
   }
 };
 
-export const captureError = (error, context = {}) => {
+export const captureError = (error, _context = {}) => {
   if (import.meta.env.PROD) {
-    // console.error(`[Error]`, error, context);
-    // Sentry.captureException(error, { extra: context });
+    void _context;
+    // console.error(`[Error]`, error, _context);
+    // Sentry.captureException(error, { extra: _context });
   }
 };

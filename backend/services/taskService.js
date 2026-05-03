@@ -25,13 +25,16 @@ async function listTasks(businessId) {
 }
 
 async function updateTaskStatus(taskId, businessId, status) {
-  // Uses updateMany to safely enforce business boundary without a findFirst call
   await prisma.task.updateMany({
     where: { id: taskId, businessId },
     data: { status },
   });
+  return prisma.task.findFirst({ where: { id: taskId, businessId } });
+}
 
-  return prisma.task.findFirst({
+// Fix: missing deleteTask function for DELETE /tasks/:taskId endpoint
+async function deleteTask(taskId, businessId) {
+  return prisma.task.deleteMany({
     where: { id: taskId, businessId },
   });
 }
@@ -40,4 +43,5 @@ module.exports = {
   createTask,
   listTasks,
   updateTaskStatus,
+  deleteTask,
 };

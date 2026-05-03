@@ -1,18 +1,35 @@
 import React from 'react';
-import { SectionHeader, SkeletonLine, Icon } from './ui';
+import { SectionHeader, SkeletonLine } from './ui';
 import { AtlasAPI } from './api';
 
-export const Tasks = ({ business, onRefresh }) => {
+const DEMO_IDS = ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'];
+
+export const Tasks = ({ business }) => {
   const [tasks, setTasks] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [completing, setCompleting] = React.useState(null);
 
-  React.useEffect(() => {
-    if (!business?.id) {
-      setLoading(false);
-      return;
-    }
+  const loadTasks = React.useCallback(() => {
+    if (!business?.id) { setLoading(false); return; }
+    // Demo businesses have no real backend tasks
+    if (DEMO_IDS.includes(business.id) || business.isDemo) { setLoading(false); return; }
     AtlasAPI.tasks.list(business.id).then(setTasks).catch(console.error).finally(() => setLoading(false));
-  }, [business?.id]);
+  }, [business?.id, business?.isDemo]);
+
+  React.useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  const handleComplete = async (taskId) => {
+    setCompleting(taskId);
+    try {
+      await AtlasAPI.tasks.updateStatus(business.id, taskId, 'completed');
+      // Remove from list optimistically
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (err) {
+      console.error('Failed to complete task', err);
+    } finally {
+      setCompleting(null);
+    }
+  };
 
   if (loading) return <div style={{ padding: 64 }}><SkeletonLine style={{ width: 300 }} /></div>;
 
@@ -28,7 +45,13 @@ export const Tasks = ({ business, onRefresh }) => {
                 <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{task.description}</div>
                 {task.dueDate && <div style={{ fontSize: 11, color: 'var(--warning)' }}>Due {new Date(task.dueDate).toLocaleDateString()}</div>}
               </div>
-              <button className="btn btn-success btn-sm">Complete</button>
+              <button
+                className="btn btn-success btn-sm"
+                onClick={() => handleComplete(task.id)}
+                disabled={completing === task.id}
+              >
+                {completing === task.id ? '...' : 'Complete'}
+              </button>
             </div>
           ))
         ) : (

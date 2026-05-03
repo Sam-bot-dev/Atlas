@@ -20,13 +20,20 @@ const seed = async () => {
 
   console.log('✅ User created');
 
-  // Clear existing demo data
+  // Clear existing demo data — delete in dependency order
+  const demoBusinessIds = await prisma.business.findMany({
+    where: { isDemo: true },
+    select: { id: true },
+  }).then(bs => bs.map(b => b.id));
+
+  if (demoBusinessIds.length > 0) {
+    await prisma.task.deleteMany({ where: { businessId: { in: demoBusinessIds } } });
+    await prisma.automation.deleteMany({ where: { businessId: { in: demoBusinessIds } } });
+    await prisma.action.deleteMany({ where: { businessId: { in: demoBusinessIds } } });
+    await prisma.insight.deleteMany({ where: { businessId: { in: demoBusinessIds } } });
+    await prisma.metric.deleteMany({ where: { businessId: { in: demoBusinessIds } } });
+  }
   await prisma.business.deleteMany({ where: { isDemo: true } });
-  await prisma.metric.deleteMany({ where: { business: { isDemo: true } } });
-  await prisma.insight.deleteMany({ where: { business: { isDemo: true } } });
-  await prisma.action.deleteMany({ where: { business: { isDemo: true } } });
-  await prisma.automation.deleteMany({ where: { business: { isDemo: true } } });
-  await prisma.task.deleteMany({ where: { business: { isDemo: true } } });
   console.log('🗑️ Cleared old demo data');
 
   // 2. Full Sample Data for 6 Indian Demo Businesses
@@ -203,7 +210,10 @@ const seed = async () => {
   ];
 
   for (const bData of businesses) {
-    const { metrics, insights, actions, ...bizFields } = bData;
+    const { metrics, insights, actions, type, ...bizFields } = bData;
+    // 'type' is used in demo data for display but the DB schema only has 'category'
+    // Use type as category if category isn't set
+    if (!bizFields.category && type) bizFields.category = type;
     
     const biz = await prisma.business.upsert({
       where: { id: bizFields.id },
@@ -219,8 +229,8 @@ const seed = async () => {
     for (const m of metrics) {
       await prisma.metric.upsert({
         where: { businessId_key: { businessId: biz.id, key: m.key } },
-        update: m,
-        create: { ...m, businessId: biz.id }
+        update: { value: m.value, delta: m.delta ?? 0, label: m.label ?? '', unit: m.unit ?? '', period: m.period ?? '' },
+        create: { key: m.key, value: m.value, delta: m.delta ?? 0, label: m.label ?? '', unit: m.unit ?? '', period: m.period ?? '', businessId: biz.id }
       });
     }
 

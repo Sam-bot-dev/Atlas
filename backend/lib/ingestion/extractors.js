@@ -35,7 +35,12 @@ const readText = async (filePath) => ({
 
 const readJson = async (filePath) => {
   const text = await fs.readFile(filePath, 'utf8');
-  const payload = JSON.parse(text);
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    return { rawText: text, rows: [], warning: 'File is not valid JSON.' };
+  }
   const rows = Array.isArray(payload) ? payload : Array.isArray(payload.rows) ? payload.rows : [];
   return { rawText: text, rows, json: payload };
 };

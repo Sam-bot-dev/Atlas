@@ -43,7 +43,7 @@ const groqExtract = async ({ rawText, rows, business }) => {
         },
         {
           role: 'user',
-          content: `Business: ${business.name} (${business.category || business.type || 'SMB'}). Raw input:\n${sourceText.slice(0, 14000)}`,
+           content: `Business: ${business.name} (${business.category || 'SMB'}). Raw input:\n${sourceText.slice(0, 14000)}`,
         },
       ],
     }),

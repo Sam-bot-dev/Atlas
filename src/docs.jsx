@@ -467,7 +467,7 @@ Atlas-Workspace-Id: ws_...`}</Code>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-ghost" onClick={onLogin}>Log in</button>
-            <button className="btn btn-brand" onClick={onSignup}>Get started</button>
+            <button className="btn btn-primary" onClick={onSignup}>Get started</button>
           </div>
         </div>
       </div>
@@ -542,7 +542,7 @@ Atlas-Workspace-Id: ws_...`}</Code>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--brand-deep)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Need help?</span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 10 }}>Ask Atlas Copilot in-app, or chat with a human on Pro+.</div>
-            <button className="btn btn-sm btn-brand" style={{ width: '100%', justifyContent: 'center' }}>Open chat</button>
+            <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Open chat</button>
           </div>
 
           <div style={{ marginTop: 20, fontSize: 11, color: 'var(--ink-4)' }}>

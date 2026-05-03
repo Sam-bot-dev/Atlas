@@ -295,9 +295,9 @@ function prioritizeActions(actions, context) {
  * Save actions to database
  */
 async function saveActions(businessId, actions) {
-  // Keep one current recommendation set per business.
+  // Only replace pending recommendations — preserve in_progress/done/dismissed actions
   await prisma.action.deleteMany({
-    where: { businessId },
+    where: { businessId, status: 'pending', type: 'regular' },
   });
 
   // Save new actions
@@ -312,6 +312,7 @@ async function saveActions(businessId, actions) {
         confidence: action.confidence,
         urgent: action.urgent,
         status: 'pending',
+        type: 'regular',
       },
     });
   }

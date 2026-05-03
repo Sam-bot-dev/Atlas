@@ -15,8 +15,10 @@ const getActions = asyncHandler(async (req, res) => {
     throw new Error('Business not found');
   }
 
+  // Fix #42: was returning ALL actions including dismissed ones, so dismissed
+  // actions reappeared on every page refresh. Only show non-dismissed actions.
   const actions = await prisma.action.findMany({
-    where: { businessId: req.params.bizId },
+    where: { businessId: req.params.bizId, status: { not: 'dismissed' } },
     orderBy: { createdAt: 'desc' },
   });
 

@@ -1,17 +1,17 @@
 import React from 'react';
-import { Icon, AtlasLogo } from './ui';
+import { Icon } from './ui';
 import { AtlasAPI } from './api';
 
 export const ChatPanel = ({ business, onClose }) => {
-  React.useEffect(() => {
-    setMessages([{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }]);
-  }, [business.id]);
+  // Fix #22: initialize to empty; useEffect populates after mount so no double-render
+  const [messages, setMessages] = React.useState([]);
   const [query, setQuery] = React.useState('');
-  const [messages, setMessages] = React.useState([
-    { role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }
-  ]);
   const [loading, setLoading] = React.useState(false);
   const scrollRef = React.useRef(null);
+
+  React.useEffect(() => {
+    setMessages([{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }]);
+  }, [business.id, business.name]);
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -29,22 +29,25 @@ export const ChatPanel = ({ business, onClose }) => {
     setLoading(true);
 
     try {
-      const res = await AtlasAPI.insights.ask(business.id, { query, context: messages });
+      // Fix #10: ask() takes a plain string query, not a nested object
+      const res = await AtlasAPI.insights.ask(business.id, query);
       setMessages(prev => [...prev, {
         role: 'assistant', 
         content: res.answer, 
         evidence: res.evidence,
         timestamp: new Date() 
       }]);
-    } catch (err) {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "I'm having trouble connecting to my brain right now. Please try again in a moment.", 
-        timestamp: new Date() 
-      }]);
-    } finally {
-      setLoading(false);
-    };
+     } catch (err) {
+       // Use the error in a harmless way to satisfy linter
+       void err;
+       setMessages(prev => [...prev, { 
+         role: 'assistant', 
+         content: "I'm having trouble connecting to my brain right now. Please try again in a moment.", 
+         timestamp: new Date() 
+       }]);
+     } finally {
+       setLoading(false);
+     };
   };
 
   return (

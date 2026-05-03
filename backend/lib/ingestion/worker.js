@@ -115,7 +115,8 @@ const recoverQueuedUploadJobs = async () => {
       // Reset processing jobs to queued and clear stage
       await prisma.uploadJob.update({
         where: { id: job.id },
-        data: { status: 'queued', stage: null },
+        // Fix #56: stage is String non-nullable in schema; null would throw Prisma validation error
+      data: { status: 'queued', stage: 'queued' },
       });
     }
     enqueueUploadJob(job.id);

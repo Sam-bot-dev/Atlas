@@ -1,6 +1,4 @@
 // Atlas — Landing page
-
-import React from 'react';
 import { ATLAS_BUSINESS_LIST, ATLAS_BUSINESSES } from './data';
 import { AtlasLogo, Icon, BizAvatar } from './ui';
 
@@ -12,11 +10,11 @@ export const Landing = ({ onDemo, onLogin, onSignup, onNavigate = () => {} }) =>
       <div style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--topbar-bg)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <AtlasLogo/>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center', fontSize: 13, color: 'var(--ink-2)' }}>
-            <a href="#product" style={{ cursor: 'pointer' }}>Product</a>
-            <a href="#demo" style={{ cursor: 'pointer' }}>Demo businesses</a>
-            <a onClick={() => onNavigate('pricing')} style={{ cursor: 'pointer' }}>Pricing</a>
-            <a onClick={() => onNavigate('docs')} style={{ cursor: 'pointer' }}>Docs</a>
+<div style={{ display: 'flex', gap: 24, alignItems: 'center', fontSize: 13, color: 'var(--ink-2)' }}>
+            <span style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }} onClick={() => document.getElementById('product')?.scrollIntoView({ behavior: 'smooth' })}>Product</span>
+            <span style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }} onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>Demo businesses</span>
+            <span style={{ cursor: 'pointer' }} onClick={() => onNavigate('pricing')}>Pricing</span>
+            <span style={{ cursor: 'pointer' }} onClick={() => onNavigate('docs')}>Docs</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-ghost" onClick={onLogin}>Log in</button>
@@ -47,20 +45,20 @@ export const Landing = ({ onDemo, onLogin, onSignup, onNavigate = () => {} }) =>
             Log in
           </button>
         </div>
-        <div style={{ marginTop: 18, fontSize: 12, color: 'var(--ink-3)' }}>
-          No signup needed for demos · <span style={{ fontFamily: 'mono', background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>demo@atlas.ai / atlas123</span> · Connect real data in 2 minutes
-        </div>
+<div style={{ marginTop: 18, fontSize: 12, color: 'var(--ink-3)' }}>
+           No signup needed for demos · Connect real data in 2 minutes
+         </div>
       </div>
 
       {/* Social proof strip */}
       <div style={{ borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40, flexWrap: 'wrap' }}>
-          {[
-            { value: '6', label: 'business types covered' },
-            { value: '8', label: 'data integrations' },
-            { value: '< 2 min', label: 'to first insight' },
-            { value: '100%', label: 'grounded in your data' },
-          ].map((s, i) => (
+{[
+             { value: '6', label: 'business types covered' },
+             { value: '4', label: 'data integrations' },
+             { value: '< 2 min', label: 'to first insight' },
+             { value: '100%', label: 'grounded in your data' },
+           ].map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600, color: 'var(--ink-1)', letterSpacing: '-0.02em' }}>{s.value}</span>
               <span style={{ color: 'var(--ink-3)' }}>{s.label}</span>

@@ -1,28 +1,28 @@
+/* eslint-env node */
 const { PrismaClient } = require('@prisma/client');
-const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3');
-const path = require('path');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
-const defaultDatabaseUrl = `file:${path.join(__dirname, '..', 'dev.db')}`;
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set.');
+}
 
-// Singleton pattern for Prisma Client
+// Singleton pattern — reuse across hot reloads in dev
 const globalForPrisma = globalThis;
 
 if (!globalForPrisma.prisma) {
-  console.log('Initializing Prisma Client with better-sqlite3 adapter...');
-  
-  const adapter = new PrismaBetterSqlite3({
-    url: process.env.DATABASE_URL || defaultDatabaseUrl,
-  });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
   globalForPrisma.prisma = new PrismaClient({
     adapter,
-    log: ['error', 'warn'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
-  // Verify connection immediately
   globalForPrisma.prisma.$connect()
-    .then(() => console.log('Database connected successfully.'))
-    .catch((err) => console.error('Database connection failed:', err.message));
+    .then(() => console.log('PostgreSQL connected.'))
+    .catch((err) => {
+      console.error('Database connection failed:', err.message);
+      process.exit(1);
+    });
 }
 
 const prisma = globalForPrisma.prisma;

@@ -43,16 +43,17 @@ async function forecastRevenue(businessId, daysAhead = 7) {
   // Simple trend classification
   const trend = slope > 5 ? 'increasing' : slope < -5 ? 'decreasing' : 'stable';
   
+  // Predict next 30 days for smoother UI chart
   const predictions = [];
   const lastDate = new Date(sortedDates[sortedDates.length - 1]);
   
-  for (let i = 1; i <= daysAhead; i++) {
+  for (let i = 1; i <= 30; i++) {
     const nextX = xVals.length - 1 + i;
-    const predY = Math.max(0, slope * nextX + intercept); // Ensure no negative predicted revenue
+    const predY = Math.max(0, slope * nextX + intercept);
     
     const predDate = new Date(lastDate);
     predDate.setDate(predDate.getDate() + i);
-    predictions.push({ date: predDate.toISOString().split('T')[0], expectedRevenue: Math.round(predY) });
+    predictions.push({ d: predDate.toISOString().split('T')[0], v: Math.round(predY) });
   }
 
   return { trend, slope: Math.round(slope), lastActual: yVals[yVals.length - 1], predictions };
@@ -109,15 +110,34 @@ async function detectAnomalies(businessId, evaluateAutomations) {
 
   // Hook into Insight generation explicitly
   for (const anomaly of anomalies) {
-    await prisma.insight.create({
-      data: {
+    // Fix: Deduplicate anomaly insights — previously a new insight was created on
+    // every call (which happens on every GET /insights request). If the same
+    // anomaly persists across many requests users accumulate hundreds of
+    // identical insight records. Skip creation if a matching anomaly insight
+    // was written in the last 24 hours.
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const existing = await prisma.insight.findFirst({
+      where: {
         businessId,
+        type: 'anomaly',
         title: anomaly.title,
-        body: anomaly.body,
-        severity: anomaly.severity,
-        evidence: JSON.stringify(['Anomaly Detection Model', 'Z-Score Analysis', 'Urgent Alert']),
-      }
+        createdAt: { gte: oneDayAgo },
+      },
     });
+
+    if (!existing) {
+      await prisma.insight.create({
+        data: {
+          businessId,
+          title: anomaly.title,
+          body: anomaly.body,
+          severity: anomaly.severity,
+          // Fix #27: tag as 'anomaly' so saveInsights (which deletes 'regular') never wipes these
+          type: 'anomaly',
+          evidence: JSON.stringify(['Anomaly Detection Model', 'Z-Score Analysis', 'Urgent Alert']),
+        }
+      });
+    }
 
     if (evaluateAutomations) {
       await evaluateAutomations(businessId, anomaly.type, anomaly);

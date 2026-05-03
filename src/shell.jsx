@@ -1,6 +1,6 @@
 import React from 'react';
 import { BizAvatar, Icon } from './ui';
-import { ATLAS_BUSINESS_LIST, ATLAS_BUSINESSES } from './data';
+import { ATLAS_BUSINESS_LIST } from './data';
 import { AtlasAPI } from './api';
 
 // Atlas — Dashboard shell + sidebar + topbar
@@ -14,7 +14,7 @@ const SIDEBAR_ITEMS = [
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
-export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }) => {
+export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo, onUpgrade, user = null }) => {
   return (
     <aside style={{
       width: 224, flexShrink: 0,
@@ -36,8 +36,8 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }
         >
           <BizAvatar business={business} size={26}/>
           <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{business.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{business.type}</div>
+           <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{business?.name}</div>
+             <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{business?.category}</div>
             {isDemo && <span className="badge" style={{ fontSize: 10 }}>Demo</span>}
           </div>
           <Icon name="chevron-down" size={14} color="var(--ink-3)"/>
@@ -71,14 +71,18 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }
         })}
       </div>
 
-      <div style={{ padding: 12, borderTop: '1px solid var(--border-subtle)' }}>
+<div style={{ padding: 12, borderTop: '1px solid var(--border-subtle)' }}>
         <div className="card" style={{ padding: 12, background: 'var(--bg-elevated)' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
-      <Icon name="sparkles" size={13}/>
-      Atlas Pro trial {/* 7.19 dynamic */}
-    </div>
-    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>Trial active</div>
-          <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Upgrade</button>
+     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+       <Icon name="sparkles" size={13}/>
+       {user?.subscription?.status === 'active' ? 'Pro trial' : 'Atlas Pro trial'}
+     </div>
+     <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>
+       {user?.subscription?.status === 'active' ? 'Active until ' + (user.subscription.current_period_end ? new Date(user.subscription.current_period_end).toLocaleDateString() : 'soon') : 'Trial active'}
+     </div>
+          <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={onUpgrade}>
+            {user?.subscription?.status === 'active' ? 'Manage' : 'Upgrade'}
+          </button>
         </div>
         <button onClick={onExit} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'flex-start', marginTop: 8, color: 'var(--ink-3)' }}>
           <Icon name="logout" size={13}/> Log out
@@ -88,10 +92,10 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }
   );
 };
 
-export const TopBar = ({ title, business, user, onSwitch, query, setQuery, onAsk }) => {
+export const TopBar = ({ title, business, user, onExit = null }) => {
   const [open, setOpen] = React.useState(false);
   const [askOpen, setAskOpen] = React.useState(false);
-  const userName = user?.name || business.owner || 'Owner';
+  const userName = user?.name || business?.owner || 'Owner';
   const initials = userName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'AT';
   return (
     <div style={{
@@ -102,7 +106,7 @@ export const TopBar = ({ title, business, user, onSwitch, query, setQuery, onAsk
       gap: 16, position: 'sticky', top: 0, zIndex: 5,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--ink-3)' }}>
-        <span>{business.name}</span>
+        <span>{business?.name}</span>
         <Icon name="chevron-right" size={12} color="var(--ink-4)"/>
         <span style={{ color: 'var(--ink-1)', fontWeight: 500 }}>{title}</span>
       </div>
@@ -113,10 +117,10 @@ export const TopBar = ({ title, business, user, onSwitch, query, setQuery, onAsk
           Ask Atlas…
           <span className="mono" style={{ padding: '1px 5px', borderRadius: 3, background: 'var(--bg-elevated)', border: '1px solid var(--border)', fontSize: 10, marginLeft: 8 }}>⌘K</span>
         </button>
-        <button className="btn btn-ghost btn-sm" style={{ position: 'relative' }}>
-          <Icon name="bell" size={15}/>
-          {false && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>}
-        </button>
+<button className="btn btn-ghost btn-sm" style={{ position: 'relative' }}>
+           <Icon name="bell" size={15}/>
+           {user?.notifications?.length > 0 && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>}
+         </button>
         <div style={{ width: 1, height: 22, background: 'var(--border)' }}/>
         <button onClick={() => setOpen(!open)} style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px',
@@ -128,6 +132,37 @@ export const TopBar = ({ title, business, user, onSwitch, query, setQuery, onAsk
           <Icon name="chevron-down" size={12} color="var(--ink-3)"/>
         </button>
       </div>
+
+      {/* Fix #33: dropdown menu renders when open is true */}
+      {open && (
+        <div
+          style={{ position: 'absolute', top: 56, right: 24, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
+          onMouseLeave={() => setOpen(false)}
+        >
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{userName}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{user?.email || ''}</div>
+          </div>
+          {[{ label: 'Profile', icon: 'user' }, { label: 'Billing', icon: 'credit-card' }, { label: 'Help', icon: 'help-circle' }].map(item => (
+            <button key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', border: 'none', background: 'transparent', fontSize: 13, cursor: 'pointer', borderRadius: 6, textAlign: 'left' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <Icon name={item.icon} size={13} color="var(--ink-3)"/> {item.label}
+            </button>
+          ))}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: 4, paddingTop: 4 }}>
+            {typeof onExit === 'function' && (
+              <button onClick={() => { setOpen(false); onExit(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', border: 'none', background: 'transparent', fontSize: 13, cursor: 'pointer', borderRadius: 6, color: 'var(--negative)', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <Icon name="logout" size={13}/> Log out
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {askOpen && <AskAtlas onClose={() => setAskOpen(false)} business={business}/>}
     </div>
@@ -147,7 +182,7 @@ const AskAtlas = ({ onClose, business }) => {
     'Import/Export': ['Why is on-time rate dropping?', 'Which clients are at churn risk?', 'What is the FX impact this quarter?'],
     'Service Business': ['Why did revenue jump in March?', 'Which jobs have the best margin?', 'When should I hire another crew member?'],
   };
-  const samples = samplesByType[business.type] || samplesByType['Home Baker'];
+   const samples = samplesByType[business?.category] || samplesByType['Home Baker'];
 
   const handleAsk = (query) => {
     if (!query.trim()) return;
@@ -155,7 +190,7 @@ const AskAtlas = ({ onClose, business }) => {
     setAnswer(null);
     AtlasAPI.insights.ask(business.id, query)
       .then(r => { setLoading(false); setAnswer(r.answer || r.text || 'Response received.'); })
-      .catch(e => { setLoading(false); setAnswer('Error generating reasoning insight. Please try again.'); });
+      .catch(() => { setLoading(false); setAnswer('Error generating reasoning insight. Please try again.'); });
   };
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }} onClick={onClose}>
@@ -199,39 +234,59 @@ const AskAtlas = ({ onClose, business }) => {
 };
 
 // Business switcher modal
-export const BusinessSwitcher = ({ current, allBusinessList, allBusinesses, onSelect, onClose }) => {
-  const list = allBusinessList || ATLAS_BUSINESS_LIST;
-  const businesses = allBusinesses || ATLAS_BUSINESSES;
+export const BusinessSwitcher = ({ current, allBusinessList, onSelect, onClose }) => {
+  const [search, setSearch] = React.useState('');
+   const list = (allBusinessList || ATLAS_BUSINESS_LIST).filter(b => 
+     b.name.toLowerCase().includes(search.toLowerCase()) || 
+     (b.category || '').toLowerCase().includes(search.toLowerCase())
+   );
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div className="card fade-in" style={{ width: 480, padding: 20, boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>Switch business</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Each demo loads its own dataset.</div>
+      <div className="card fade-in" style={{ width: 480, padding: 0, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: 20, borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>Switch business</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Each demo loads its own dataset.</div>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={14}/></button>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={14}/></button>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 10, top: 10, color: 'var(--ink-4)' }}>
+              <Icon name="search" size={14}/>
+            </div>
+            <input 
+              className="input" 
+              style={{ paddingLeft: 32, fontSize: 13 }} 
+              placeholder="Search businesses..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 360, overflow: 'auto' }}>
-          {list.map(b => {
-            const biz = businesses[b.id] || businesses['baker'];
-            const isCurrent = current.id === b.id;
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 360, overflow: 'auto', padding: 12 }}>
+          {list.map(biz => {
+            const isActive = biz.id === current?.id;
             return (
-              <button key={b.id} onClick={() => { onSelect(b.id); onClose(); }} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: 10, borderRadius: 6,
-                border: 'none', background: isCurrent ? 'var(--bg-subtle)' : 'transparent',
-                cursor: 'pointer', textAlign: 'left',
+              <button key={biz.id} onClick={() => { onSelect(biz.id); onClose(); }} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: 10,
+                border: '1px solid', borderColor: isActive ? 'var(--ink-1)' : 'transparent',
+                background: isActive ? 'var(--bg-elevated)' : 'transparent',
+                borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                transition: 'all 120ms',
               }}
-                onMouseEnter={(e) => { if (!isCurrent) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                onMouseLeave={(e) => { if (!isCurrent) e.currentTarget.style.background = 'transparent'; }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
               >
                 <BizAvatar business={biz} size={32}/>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{biz.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{biz.type} · {biz.location}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{biz.name}</div>
+                   <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{biz.category} • {biz.location || biz.address}</div>
                 </div>
-                {isCurrent && <Icon name="check" size={14} color="var(--ink-1)"/>}
+                {biz.isDemo && <span className="badge" style={{ fontSize: 10 }}>Demo</span>}
+                {isActive && <Icon name="check" size={14} color="var(--ink-1)"/>}
               </button>
             );
           })}

@@ -1,16 +1,15 @@
-import React from 'react';
-
-const Icon = ({ name, size = 16, className = '', strokeWidth = 1.5, color }) => {
+const Icon = ({ name, size = 16, className = '', strokeWidth = 1.5, color = 'currentColor', style = {} }) => {
   const props = {
     width: size,
     height: size,
     viewBox: '0 0 24 24',
     fill: 'none',
-    stroke: color || 'currentColor',
+    stroke: color,
     strokeWidth,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
     className,
+    style,
     'aria-hidden': true,
   };
   switch (name) {
@@ -66,8 +65,9 @@ const Icon = ({ name, size = 16, className = '', strokeWidth = 1.5, color }) => 
     case 'more': return <svg {...props}><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/></svg>;
     case 'send': return <svg {...props}><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>;
     case 'google': return <svg viewBox="0 0 24 24" width={size} height={size} className={className}><path fill="#4285F4" d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.32z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"/></svg>;
+// Icon component — message icon was wrong (showed a rectangle, not a chat bubble)
     case 'message': 
-      return <svg {...props}><path d="M21 15c0 .83-.67 1.5-1.5 1.5H7.5A1.5 1.5 0 0 1 6 15V7.5A1.5 1.5 0 0 1 7.5 6h9A1.5 1.5 0 0 1 18 7.5V15zM16 14H8v-2h8v2z"/></svg>;
+      return <svg {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
     default: return null;
   }
 };
@@ -85,13 +85,13 @@ const AtlasLogo = ({ size = 22 }) => (
 const Delta = ({ value, suffix = '%', invert = false }) => {
   if (value === null || value === undefined) return null;
   const positive = invert ? value < 0 : value > 0;
-  const negative = invert ? value > 0 : value < 0;
-  const color = value === 0 ? 'var(--ink-3)' : positive ? 'var(--positive)' : 'var(--negative)';
+    const color = value === 0 ? 'var(--ink-3)' : positive ? 'var(--positive)' : 'var(--negative)';
   const sign = value > 0 ? '+' : '';
+  const display = Number.isInteger(value) ? Math.abs(value) : Math.abs(Math.round(value * 10) / 10);
   return (
     <span style={{ color, fontSize: 12, fontWeight: 500, fontVariantNumeric: 'tabular-nums', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
       {value !== 0 && <Icon name={value > 0 ? 'arrow-up' : 'arrow-down'} size={11} strokeWidth={2}/>}
-      {sign}{Math.abs(value)}{suffix}
+      {sign}{display}{suffix}
     </span>
   );
 };
@@ -101,6 +101,7 @@ const severityStyle = (s) => {
     case 'positive': return { color: 'var(--positive)', bg: 'var(--positive-soft)', icon: 'trending-up' };
     case 'warning':  return { color: 'var(--warning)',  bg: 'var(--warning-soft)',  icon: 'alert' };
     case 'negative': return { color: 'var(--negative)', bg: 'var(--negative-soft)', icon: 'trending-down' };
+    case 'neutral':
     case 'info': default: return { color: 'var(--info)', bg: 'var(--info-soft)', icon: 'info' };
   }
 };
@@ -109,7 +110,7 @@ const BizAvatar = ({ business, size = 32 }) => (
   <div style={{
     width: size, height: size,
     borderRadius: 6,
-    background: business.color,
+    background: business?.color || '#4f46e5',
     color: 'white',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: size * 0.35,
@@ -117,7 +118,7 @@ const BizAvatar = ({ business, size = 32 }) => (
     letterSpacing: '-0.02em',
     flexShrink: 0,
   }}>
-    {business.initials}
+    {business?.initials || '?'}
   </div>
 );
 
@@ -132,7 +133,7 @@ const fmtINR = (v) => {
 const fmtCurrency = fmtINR;
 const fmtNumber = (v) => v.toLocaleString('en-IN');
 
-const SectionHeader = ({ eyebrow, title, subtitle, action }) => (
+const SectionHeader = ({ eyebrow, title, subtitle, action = null }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, gap: 16 }}>
     <div>
       {eyebrow && <div className="eyebrow" style={{ marginBottom: 6 }}>{eyebrow}</div>}

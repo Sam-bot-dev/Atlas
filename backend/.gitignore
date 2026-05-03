@@ -4,5 +4,9 @@ node_modules
 
 /generated/prisma
 storage
+uploads
+*.db
+*.db-shm
+*.db-wal
 firebase-admin.json
 serviceAccountKey.json

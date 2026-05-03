@@ -27,7 +27,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
       id: 'pro',
       name: 'Pro',
       tagline: 'For owner-operators ready to make Atlas their daily operating system.',
-      price: { monthly: 49, annual: 39 },
+      price: { monthly: 2999, annual: 2499 },
       cta: 'Start 14-day trial',
       ctaKind: 'brand',
       featured: true,
@@ -46,7 +46,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
       id: 'team',
       name: 'Team',
       tagline: 'For small teams making decisions together across multiple locations.',
-      price: { monthly: 149, annual: 119 },
+      price: { monthly: 7999, annual: 6999 },
       cta: 'Start 14-day trial',
       ctaKind: 'secondary',
       perks: [
@@ -143,7 +143,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-ghost" onClick={onLogin}>Log in</button>
-            <button className="btn btn-brand" onClick={onSignup}>Get started</button>
+            <button className="btn btn-primary" onClick={onSignup}>Get started</button>
           </div>
         </div>
       </div>
@@ -189,14 +189,14 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
               <div style={{ marginBottom: 18 }}>
                 {typeof t.price[billing] === 'number' ? (
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 36, fontWeight: 500, letterSpacing: '-0.025em' }}>${t.price[billing]}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 36, fontWeight: 500, letterSpacing: '-0.025em' }}>₹{t.price[billing]}</span>
                     <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>/{billing === 'annual' ? 'mo, billed yearly' : 'mo'}</span>
                   </div>
                 ) : (
                   <div style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em' }}>{t.price[billing]}</div>
                 )}
                 {billing === 'annual' && typeof t.price.monthly === 'number' && t.price.monthly > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, textDecoration: 'line-through' }}>${t.price.monthly}/mo monthly</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, textDecoration: 'line-through' }}>₹{t.price.monthly}/mo monthly</div>
                 )}
               </div>
               <button className={`btn ${t.ctaKind === 'brand' ? 'btn-brand' : ''}`} style={{ width: '100%', justifyContent: 'center', marginBottom: 18 }} onClick={t.id === 'starter' ? onSignup : t.id === 'enterprise' ? () => {} : onSignup}>{t.cta}</button>
@@ -249,9 +249,9 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
               {tiers.map(t => (
                 <div key={t.id} style={{ padding: '14px 18px', borderLeft: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.featured ? 'var(--brand-deep)' : 'var(--ink-1)' }}>{t.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
-                    {typeof t.price[billing] === 'number' ? `$${t.price[billing]}/mo` : t.price[billing]}
-                  </div>
+                   <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+                     {typeof t.price[billing] === 'number' ? `₹${t.price[billing]}/mo` : t.price[billing]}
+                   </div>
                 </div>
               ))}
             </div>
@@ -278,22 +278,22 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
           <div>
             <div className="eyebrow" style={{ marginBottom: 8, color: 'var(--brand-deep)' }}>The math</div>
             <div style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 12 }}>Atlas pays for itself <span className="serif" style={{ fontStyle: 'italic', color: 'var(--brand)' }}>in week one</span></div>
-            <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 16 }}>
-              Across our customer base, the median Pro user catches <strong>$1,200–$3,800</strong> in monthly leakage in the first 30 days — pricing errors, inventory waste, churned customers, missed reorders.
-            </p>
-            <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.55 }}>
-              At $39/mo on annual, that's a 30–95× return before counting the hours you don't spend in spreadsheets.
-            </p>
+             <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 16 }}>
+               Across our customer base, the median Pro user catches <strong>₹1,200–₹3,800</strong> in monthly leakage in the first 30 days — pricing errors, inventory waste, churned customers, missed reorders.
+             </p>
+             <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+               At ₹39/mo on annual, that's a 30–95× return before counting the hours you don't spend in spreadsheets.
+             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
-              <button className="btn btn-brand" onClick={() => onDemo('baker')}><Icon name="play" size={13}/> See it on a real business</button>
+              <button className="btn btn-primary" onClick={() => onDemo('baker')}><Icon name="play" size={13}/> See it on a real business</button>
               <button className="btn">Read the methodology</button>
             </div>
           </div>
           <div className="card" style={{ padding: 28, background: 'linear-gradient(180deg, var(--brand-soft) 0%, var(--bg-elevated) 100%)', border: '1px solid var(--brand-tint)' }}>
             <div className="eyebrow" style={{ marginBottom: 16, color: 'var(--brand-deep)' }}>Median Pro customer · 90 days</div>
             {[
-              { label: 'Inventory waste avoided', val: '$2,140 / mo', color: 'var(--brand)' },
-              { label: 'Margin recovered (pricing fixes)', val: '$1,820 / mo', color: 'var(--aurora)' },
+              { label: 'Inventory waste avoided', val: '₹2,140 / mo', color: 'var(--brand)' },
+              { label: 'Margin recovered (pricing fixes)', val: '₹1,820 / mo', color: 'var(--aurora)' },
               { label: 'Hours saved on reporting', val: '14 hrs / mo', color: 'var(--ember)' },
               { label: 'Reorders never missed', val: '8 / mo', color: 'var(--rose)' },
             ].map((r, i) => (
@@ -305,7 +305,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
             ))}
             <div style={{ marginTop: 16, padding: 14, background: 'var(--bg-elevated)', borderRadius: 8, border: '1px dashed var(--brand-tint)', textAlign: 'center' }}>
               <div className="eyebrow" style={{ color: 'var(--brand-deep)', marginBottom: 4 }}>Total monthly impact</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 500, color: 'var(--brand-deep)' }}>$3,960 + 14 hrs</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 500, color: 'var(--brand-deep)' }}>₹3,960 + 14 hrs</div>
             </div>
           </div>
         </div>
@@ -317,14 +317,14 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
           <div className="eyebrow" style={{ marginBottom: 8 }}>Add-ons</div>
           <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 28 }}>Plug in only what you need</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            {[
-              { icon: 'building', tone: 'brand', name: 'Extra workspace', price: '$15 /mo', body: 'Add another business to the same account. Atlas keeps data isolated; insights and reports remain per-workspace.' },
-              { icon: 'users', tone: 'aurora', name: 'Additional seat', price: '$12 /mo', body: 'Bring a co-founder, accountant, or store manager. Granular permissions per workspace.' },
-              { icon: 'database', tone: 'ember', name: 'Warehouse sync', price: '$99 /mo', body: 'Read directly from Postgres, BigQuery, Snowflake, Redshift, or Databricks. CDC + scheduled syncs.' },
-              { icon: 'zap', tone: 'rose', name: 'Action API', price: '$0.002 /call', body: 'Programmatic access to insights, automations, and write-back actions. Includes 10K free calls/mo on Team.' },
-              { icon: 'file', tone: 'gold', name: 'Custom reports', price: '$49 /mo', body: 'White-label PDF templates with your branding. Schedule weekly or monthly to investors and ops.' },
-              { icon: 'sparkles', tone: 'brand', name: 'Domain fine-tune', price: 'Custom', body: 'We tune the Atlas decision model on your historical data for 8–14% better precision on category-specific metrics.' },
-            ].map((a, i) => {
+             {[
+               { icon: 'building', tone: 'brand', name: 'Extra workspace', price: '₹15 /mo', body: 'Add another business to the same account. Atlas keeps data isolated; insights and reports remain per-workspace.' },
+               { icon: 'users', tone: 'aurora', name: 'Additional seat', price: '₹12 /mo', body: 'Bring a co-founder, accountant, or store manager. Granular permissions per workspace.' },
+               { icon: 'database', tone: 'ember', name: 'Warehouse sync', price: '₹99 /mo', body: 'Read directly from Postgres, BigQuery, Snowflake, Redshift, or Databricks. CDC + scheduled syncs.' },
+               { icon: 'zap', tone: 'rose', name: 'Action API', price: '₹0.002 /call', body: 'Programmatic access to insights, automations, and write-back actions. Includes 10K free calls/mo on Team.' },
+               { icon: 'file', tone: 'gold', name: 'Custom reports', price: '₹49 /mo', body: 'White-label PDF templates with your branding. Schedule weekly or monthly to investors and ops.' },
+               { icon: 'sparkles', tone: 'brand', name: 'Domain fine-tune', price: 'Custom', body: 'We tune the Atlas decision model on your historical data for 8–14% better precision on category-specific metrics.' },
+             ].map((a, i) => {
               const tone = a.tone;
               const bg = `var(--${tone}-soft)`;
               const fg = tone === 'brand' ? 'var(--brand-deep)' : `var(--${tone})`;

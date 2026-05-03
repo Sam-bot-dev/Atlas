@@ -17,12 +17,18 @@ const useMeasure = () => {
 };
 
 const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yKey = 'v', showAxis = true, fill = true }) => {
-  if (!data || data.length === 0) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 12 }}>No data</div>;
+  // Fix #58: gradient IDs must be unique per chart instance or multiple charts
+  // on the same page all share the same gradient and show wrong fill colors.
+  // Use a stable per-instance id via useRef.
+  const gradId = React.useRef(`grad-${Math.random().toString(36).slice(2, 8)}`).current;
 
   const [ref, { w }] = useMeasure();
   const padL = 36, padR = 12, padT = 12, padB = showAxis ? 22 : 8;
   const innerW = Math.max(0, w - padL - padR);
   const innerH = height - padT - padB;
+
+  if (!data || data.length === 0) return <div ref={ref} style={{ width: '100%', height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 12 }}>No data</div>;
+
   const ys = data.map(d => d[yKey]).filter(Boolean);
   let minY = 0, maxY = 1, range = 1;
   if (ys.length > 0) {
@@ -33,7 +39,7 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
   const points = data.map((d, i) => ({
     x: padL + i * stepX,
-    y: padT + innerH - ((d[yKey] || 0 - minY) / range) * innerH,
+    y: padT + innerH - (((d[yKey] || 0) - minY) / range) * innerH,
   }));
   const path = points.map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`)).join(' ');
   const area = path + ` L${padL + innerW},${padT + innerH} L${padL},${padT + innerH} Z`;
@@ -45,7 +51,7 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
       {w > 0 && (
         <svg width={w} height={height} style={{ display: 'block', overflow: 'visible' }}>
           <defs>
-            <linearGradient id={`grad-${accent.replace(/[^a-z0-9]/gi, '')}`} x1="0" x2="0" y1="0" y2="1">
+          <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor={accent} stopOpacity="0.10"/>
               <stop offset="100%" stopColor={accent} stopOpacity="0"/>
             </linearGradient>
@@ -61,7 +67,7 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
               </g>
             );
           })}
-          {fill && <path d={area} fill={`url(#grad-${accent.replace(/[^a-z0-9]/gi, '')})`}/>}
+          {fill && <path d={area} fill={`url(#${gradId})`}/>}
           <path d={path} fill="none" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           {points.map((p, i) => (
             <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="var(--bg-elevated)" stroke={accent} strokeWidth="1.5"/>

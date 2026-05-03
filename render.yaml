@@ -1,3 +1,10 @@
+databases:
+  - name: atlas-db
+    plan: starter
+    region: singapore
+    databaseName: atlas
+    user: atlas
+
 services:
   - type: web
     name: atlas
@@ -5,18 +12,16 @@ services:
     plan: starter
     region: singapore
     buildCommand: npm install && npm run build
-    startCommand: mkdir -p /var/data /var/data/uploads && touch /var/data/atlas.db && cd backend && npm install && npx prisma migrate deploy && node prisma/seed.js && npm start
+    startCommand: cd backend && npm install && npx prisma migrate deploy --config prisma.config.js && node prisma/seed.js && npm start
     healthCheckPath: /api/v1/health
     autoDeploy: true
-    disk:
-      name: atlas-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: file:/var/data/atlas.db
+        fromDatabase:
+          name: atlas-db
+          property: connectionString
       - key: UPLOAD_DIR
         value: /var/data/uploads
       - key: FRONTEND_URL
@@ -33,4 +38,21 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
-
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false

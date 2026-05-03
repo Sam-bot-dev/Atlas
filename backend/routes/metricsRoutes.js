@@ -3,15 +3,23 @@ const router = express.Router({ mergeParams: true }); // mergeParams gives us :b
 const { getMetrics, upsertMetric, getForecast, getMetricSeries, getPeakHours, importMetricsFromExcel } = require('../controllers/metricsController');
 const { protect } = require('../middleware/authMiddleware');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-// Configure multer for Excel file uploads
-const upload = multer({ dest: 'uploads/', fileFilter: (req, file, cb) => {
-  if (file.mimetype.includes('spreadsheet') || file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.mimetype === 'application/vnd.ms-excel') {
-    cb(null, true);
-  } else {
-    cb(new Error('Only Excel files are allowed'));
-  }
-}});
+// Use same upload dir as main uploads route
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'storage', 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const upload = multer({
+  dest: uploadDir,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.includes('spreadsheet') || file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed'));
+    }
+  },
+});
 
 router.route('/').get(protect, getMetrics);
 router.route('/forecast').get(protect, getForecast);

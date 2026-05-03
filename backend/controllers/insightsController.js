@@ -1,5 +1,9 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
+// Fix #41: import both anomaly detector and the automations evaluator
+const { detectAnomalies } = require('../services/mlService');
+const { evaluateAutomations } = require('../services/automationService');
+const { askAtlas } = require('../services/insightService');
 
 // @desc    Get all insights for a business
 // @route   GET /api/v1/businesses/:bizId/insights
@@ -17,6 +21,14 @@ const getInsights = asyncHandler(async (req, res) => {
   const insights = await prisma.insight.findMany({
     where: { businessId: req.params.bizId },
     orderBy: { createdAt: 'desc' },
+  });
+
+  // Fix #41: trigger anomaly detection in the background (non-blocking),
+  // passing evaluateAutomations so insight-triggered automations actually fire.
+  setImmediate(() => {
+    detectAnomalies(req.params.bizId, evaluateAutomations).catch(err =>
+      console.warn('[detectAnomalies] background check failed:', err.message)
+    );
   });
 
   res.json(
@@ -69,12 +81,17 @@ const createInsight = asyncHandler(async (req, res) => {
     },
   });
 
+  // Fix #41: also run anomaly check after a new insight is saved
+  setImmediate(() => {
+    detectAnomalies(req.params.bizId, evaluateAutomations).catch(console.error);
+  });
+
   res.status(201).json({
     id: insight.id,
     title: insight.title,
     body: insight.body,
     severity: insight.severity,
-    evidence: JSON.parse(insight.evidence || '[]'),
+    evidence: (() => { try { return JSON.parse(insight.evidence || '[]'); } catch { return []; } })(),
     createdAt: insight.createdAt,
   });
 });
@@ -99,9 +116,13 @@ const explainInsight = asyncHandler(async (req, res) => {
   } catch {
     // fallback
   }
+
+  // Fix #60: Use LLM to generate a real explanation instead of a generic string
+  const explanation = await askAtlas(req.params.bizId, `Explain this insight in detail: "${insight.title}". ${insight.body}`);
+
   res.json({
     id: insight.id,
-    answer: `${insight.title}: ${insight.body}`,
+    answer: explanation.answer || explanation,
     evidence,
   });
 });

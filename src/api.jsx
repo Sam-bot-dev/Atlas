@@ -1,29 +1,34 @@
-// Atlas — API client
-// All endpoints stubbed. Swap API_BASE and getToken() for real backend.
+// Atlas — Production API Client
+// Handles authentication, business management, and AI-powered insights.
 
-const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, ''); // 7.22 Vite compat
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
 const getToken = () => {
   try { 
     return sessionStorage.getItem('atlas-token') || localStorage.getItem('atlas-token') || ''; 
   } catch { return ''; }
 };
+// Fix #66: token was written to BOTH sessionStorage and localStorage, making
+// the source of truth ambiguous and leaving stale tokens after logout.
+// New policy: write only to sessionStorage; read localStorage as a migration
+// fallback for users who had a token stored there previously.
 const setToken = (t) => {
-  try { 
-    sessionStorage.setItem('atlas-token', t);
-    localStorage.setItem('atlas-token', t);
-  } catch (e) {
-    // Storage unavailable - fail silently
-  }
-};
+    try {
+      sessionStorage.setItem('atlas-token', t);
+      // Opportunistically clear any legacy localStorage token
+      localStorage.removeItem('atlas-token');
+    } catch {
+      // Storage unavailable - fail silently
+    }
+  };
 const clearToken = () => {
-  try { 
-    sessionStorage.removeItem('atlas-token');
-    localStorage.removeItem('atlas-token');
-  } catch (e) {
-    // Storage unavailable - fail silently
-  }
-};
+    try {
+      sessionStorage.removeItem('atlas-token');
+      localStorage.removeItem('atlas-token');
+    } catch {
+      // Storage unavailable - fail silently
+    }
+  };
 
 const headers = (extra = {}) => ({
   'Content-Type': 'application/json',
@@ -117,6 +122,20 @@ const AtlasAPI = {
       clearToken();
     },
     me: async () => {
+      // Fix #98: if we already have a token, skip the full Firebase onAuthStateChanged
+      // + token exchange round-trip that happens on every app mount.
+      if (getToken()) {
+        // Validate the cached token is still good by hitting a lightweight endpoint.
+        // If it fails (401), fall through to re-authenticate.
+        try {
+          const data = await get('/auth/me');
+          return data;
+        } catch (e) {
+          if (e.status !== 401) throw e;
+          // Token expired — clear it and re-authenticate below
+          clearToken();
+        }
+      }
       const { onAuthStateChanged } = await import('firebase/auth');
       const { auth } = await import('./firebase');
       return new Promise((resolve, reject) => {
@@ -161,16 +180,17 @@ const AtlasAPI = {
     list: (bizId) => get(`/businesses/${bizId}/uploads`),
     delete: (bizId, uploadId) => del(`/businesses/${bizId}/uploads/${uploadId}`),
   },
-    metrics: {
-    summary: (bizId) => get(`/businesses/${bizId}/metrics`),
-    series: (bizId, metric) => get(`/businesses/${bizId}/metrics/series/${metric}`),
-    peakHours: (bizId) => get(`/businesses/${bizId}/metrics/peak-hours`),
+  metrics: {
+    summary: (bizId, period) => get(`/businesses/${bizId}/metrics`, period ? { period } : undefined),
+    series: (bizId, metric, period) => get(`/businesses/${bizId}/metrics/series/${metric}`, period ? { period } : undefined),
+    peakHours: (bizId, period) => get(`/businesses/${bizId}/metrics/peak-hours`, period ? { period } : undefined),
     forecast: (bizId) => get(`/businesses/${bizId}/metrics/forecast`),
     importExcel: (bizId, file) => {
       const form = new FormData();
       form.append('file', file);
       return upload(`/businesses/${bizId}/metrics/import-excel`, form);
     },
+    downloadTemplate: () => fetch(API_BASE + '/metrics/template').then(r => { if (!r.ok) throw new Error('Template not found'); return r.blob(); }),
   },
   insights: {
     list: (bizId) => get(`/businesses/${bizId}/insights`),
@@ -190,9 +210,16 @@ const AtlasAPI = {
     delete: (bizId, autoId) => del(`/businesses/${bizId}/automations/${autoId}`),
     suggested: (bizId) => get(`/businesses/${bizId}/automations/suggested`),
   },
-tasks: {
+  tasks: {
     list: (bizId) => get(`/businesses/${bizId}/tasks`),
     updateStatus: (bizId, taskId, status) => patch(`/businesses/${bizId}/tasks/${taskId}/status`, { status }),
+    create: (bizId, { title, description, dueDate }) => post(`/businesses/${bizId}/tasks`, { title, description, dueDate }),
+    delete: (bizId, taskId) => del(`/businesses/${bizId}/tasks/${taskId}`),
+  },
+  reports: {
+    list: (bizId) => get(`/businesses/${bizId}/reports`),
+    create: (bizId, type = 'weekly') => post(`/businesses/${bizId}/reports`, { type }),
+    downloadUrl: (bizId, reportId) => `${API_BASE}/businesses/${bizId}/reports/${reportId}/download`,
   },
 };
  
