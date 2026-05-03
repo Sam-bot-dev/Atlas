@@ -1,6 +1,17 @@
-node_modules
-# Keep environment variables out of version control
+# env files
 .env
+.env.local
 
-/generated/prisma
-storage
+# firebase admin secrets
+firebase-admin.json
+config/firebase-admin.json
+
+# node modules
+node_modules/
+
+# prisma db
+prisma/dev.db
+prisma/dev.db-journal
+
+# uploads
+backend/storage/uploads/

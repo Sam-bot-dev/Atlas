@@ -3,9 +3,6 @@ const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcryptjs');
 const { prisma } = require('../lib/prisma');
 const admin = require('../lib/firebaseAdmin');
-const asyncHandler = require('express-async-handler');
-const bcrypt = require('bcryptjs');
-const { prisma } = require('../lib/prisma');
 
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const normalizeName = (name = '') => String(name).trim();
@@ -153,13 +150,13 @@ const firebaseLogin = asyncHandler(async (req, res) => {
 
   // 3. If Google Auth new user, create them in Prisma
   if (!user) {
-     user = await prisma.user.create({
-        data: {
-           email: decoded.email,
-           name: decoded.name || 'Google User',
-           password: 'firebase-user', // dummy password, login via firebase
-        }
-     });
+    user = await prisma.user.create({
+      data: {
+        email: decoded.email,
+        name: decoded.name || 'Google User',
+        password: 'firebase-user', // dummy password, login via firebase
+      }
+    });
   }
 
   res.json({
