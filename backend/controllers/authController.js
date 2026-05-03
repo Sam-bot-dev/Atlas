@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcryptjs');
 const { prisma } = require('../lib/prisma');
+const admin = require('../lib/firebaseAdmin');
 
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const normalizeName = (name = '') => String(name).trim();
@@ -117,9 +118,59 @@ const logoutUser = asyncHandler(async (req, res) => {
   res.json({ success: true });
 });
 
+// @desc    Authenticate with Firebase ID Token
+// @route   POST /api/v1/auth/firebase
+// @access  Public
+const firebaseLogin = asyncHandler(async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) {
+    res.status(400);
+    throw new Error('Firebase ID token is required');
+  }
+
+  // 1. Verify Token with Firebase Admin
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(idToken);
+  } catch (err) {
+    console.error('Firebase Admin Error:', err);
+    res.status(401);
+    throw new Error('Invalid Firebase token');
+  }
+
+  if (!decoded.email) {
+    res.status(400);
+    throw new Error('Firebase user does not have an email');
+  }
+
+  // 2. See if user exists in our local Prisma DB by email
+  let user = await prisma.user.findUnique({
+    where: { email: decoded.email },
+  });
+
+  // 3. If Google Auth new user, create them in Prisma
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: decoded.email,
+        name: decoded.name || 'Google User',
+        password: 'firebase-user', // dummy password, login via firebase
+      }
+    });
+  }
+
+  res.json({
+    _id: user.id,
+    name: user.name,
+    email: user.email,
+    token: generateToken(user.id, user.email),
+  });
+});
+
 module.exports = {
   signupUser,
   loginUser,
   getMe,
   logoutUser,
+  firebaseLogin,
 };

@@ -25,8 +25,13 @@ export const Login = ({ onLogin, onBack, onSignup }) => {
     }
   };
 
-  const handleGoogle = () => {
-    alert('Google Login is currently in beta. Please use your email and password for now.');
+  const handleGoogle = async () => {
+    try {
+      const user = await AtlasAPI.auth.loginWithGoogle();
+      onLogin(user);
+    } catch (e) {
+      alert('Google Login failed: ' + e.message);
+    }
   };
 
   return (

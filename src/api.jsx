@@ -7,10 +7,10 @@ const getToken = () => {
   try { return sessionStorage.getItem('atlas-token') || ''; } catch { return ''; }
 };
 const setToken = (t) => {
-  try { sessionStorage.setItem('atlas-token', t); } catch {}
+  try { sessionStorage.setItem('atlas-token', t); } catch { }
 };
 const clearToken = () => {
-  try { sessionStorage.removeItem('atlas-token'); } catch {}
+  try { sessionStorage.removeItem('atlas-token'); } catch { }
 };
 
 const headers = (extra = {}) => ({
@@ -51,13 +51,56 @@ const upload = (path, formData) =>
 
 const AtlasAPI = {
   auth: {
-    login: (email, password) =>
-      post('/auth/login', { email, password }).then(r => { setToken(r.token); return r; }),
-    loginWithGoogle: () => Promise.reject(new Error('Google login is not configured yet. Use email login.')),
-    signup: ({ email, password, name }) =>
-      post('/auth/signup', { email, password, name }).then(r => { setToken(r.token); return r; }),
-    logout: () => post('/auth/logout', {}).finally(() => clearToken()),
-    me: () => get('/auth/me'),
+    login: async (email, password) => {
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { auth } = await import('./firebase');
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const token = await cred.user.getIdToken();
+      setToken(token);
+      return cred.user;
+    },
+    loginWithGoogle: async () => {
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('./firebase');
+      const provider = new GoogleAuthProvider();
+      const cred = await signInWithPopup(auth, provider);
+      const token = await cred.user.getIdToken();
+      setToken(token);
+      return cred.user;
+    },
+    signup: async ({ email, password, name }) => {
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      const { auth } = await import('./firebase');
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (name) {
+        await updateProfile(cred.user, { displayName: name });
+      }
+      const token = await cred.user.getIdToken();
+      setToken(token);
+      return cred.user;
+    },
+    logout: async () => {
+      const { signOut } = await import('firebase/auth');
+      const { auth } = await import('./firebase');
+      await signOut(auth);
+      clearToken();
+    },
+    me: async () => {
+      const { onAuthStateChanged } = await import('firebase/auth');
+      const { auth } = await import('./firebase');
+      return new Promise((resolve, reject) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          unsubscribe();
+          if (user) {
+            const token = await user.getIdToken();
+            setToken(token);
+            resolve(user);
+          } else {
+            reject(new Error('Not logged in'));
+          }
+        });
+      });
+    },
   },
   businesses: {
     list: () => get('/businesses'),
