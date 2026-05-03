@@ -21,43 +21,43 @@ function linearRegression(x, y) {
  * Forecast Revenue based on historical order distributions
  */
 async function forecastRevenue(businessId, daysAhead = 7) {
-  const orders = await prisma.order.findMany({
-    where: { businessId, orderDate: { not: null } },
-    orderBy: { orderDate: 'asc' },
-  });
+   const orders = await prisma.order.findMany({
+     where: { businessId, orderDate: { not: null } },
+     orderBy: { orderDate: 'asc' },
+   });
 
-  if (orders.length < 5) return { trend: 'stable', predictions: [] };
+   if (orders.length < 5) return { trend: 'stable', predictions: [] };
 
-  const dailySales = {};
-  orders.forEach(o => {
-    const dateStr = new Date(o.orderDate).toISOString().split('T')[0];
-    dailySales[dateStr] = (dailySales[dateStr] || 0) + o.total;
-  });
+   const dailySales = {};
+   orders.forEach(o => {
+     const dateStr = new Date(o.orderDate).toISOString().split('T')[0];
+     dailySales[dateStr] = (dailySales[dateStr] || 0) + o.total;
+   });
 
-  const sortedDates = Object.keys(dailySales).sort();
-  const yVals = sortedDates.map(d => dailySales[d]);
-  const xVals = Array.from({ length: yVals.length }, (_, i) => i);
+   const sortedDates = Object.keys(dailySales).sort();
+   const yVals = sortedDates.map(d => dailySales[d]);
+   const xVals = Array.from({ length: yVals.length }, (_, i) => i);
 
-  const { slope, intercept } = linearRegression(xVals, yVals);
+   const { slope, intercept } = linearRegression(xVals, yVals);
 
-  // Simple trend classification
-  const trend = slope > 5 ? 'increasing' : slope < -5 ? 'decreasing' : 'stable';
-  
-  // Predict next 30 days for smoother UI chart
-  const predictions = [];
-  const lastDate = new Date(sortedDates[sortedDates.length - 1]);
-  
-  for (let i = 1; i <= 30; i++) {
-    const nextX = xVals.length - 1 + i;
-    const predY = Math.max(0, slope * nextX + intercept);
-    
-    const predDate = new Date(lastDate);
-    predDate.setDate(predDate.getDate() + i);
-    predictions.push({ d: predDate.toISOString().split('T')[0], v: Math.round(predY) });
-  }
+   // Simple trend classification
+   const trend = slope > 5 ? 'increasing' : slope < -5 ? 'decreasing' : 'stable';
+   
+   // Predict next `daysAhead` days for UI chart
+   const predictions = [];
+   const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+   
+   for (let i = 1; i <= daysAhead; i++) {
+     const nextX = xVals.length - 1 + i;
+     const predY = Math.max(0, slope * nextX + intercept);
+     
+     const predDate = new Date(lastDate);
+     predDate.setDate(predDate.getDate() + i);
+     predictions.push({ d: predDate.toISOString().split('T')[0], v: Math.round(predY) });
+   }
 
-  return { trend, slope: Math.round(slope), lastActual: yVals[yVals.length - 1], predictions };
-}
+   return { trend, slope: Math.round(slope), lastActual: yVals[yVals.length - 1], predictions };
+ }
 
 /**
  * Detect Anomalies in recent data using Z-Score analysis

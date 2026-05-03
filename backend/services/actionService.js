@@ -185,8 +185,8 @@ function generateStandardActions(context) {
  * Advanced pattern-based actions
  */
 function generateAdvancedActions(context) {
-  const actions = [];
-  const { metrics, data, business, insights } = context;
+   const actions = [];
+   const { metrics, data } = context;
 
   // 1. Bundle Slow Sellers
   const topMovers = data.recentOrders
@@ -269,9 +269,9 @@ function generateAdvancedActions(context) {
 /**
  * Prioritize actions by score
  */
-function prioritizeActions(actions, context) {
+function prioritizeActions(actions) {
   return actions
-    .map((action) => {
+    .map(action => {
       // Calculate priority score
       const impactScore = { High: 3, Medium: 2, Low: 1 }[action.impact] || 2;
       const effortScore = { High: 1, Medium: 2, Low: 3 }[action.effort] || 2; // lower effort is better
@@ -282,12 +282,12 @@ function prioritizeActions(actions, context) {
       const urgencyBoost = action.urgent ? 2 : 0;
 
       return {
-        ...action,
         score: score + urgencyBoost,
+        action: action
       };
     })
     .sort((a, b) => b.score - a.score)
-    .map(({ score, ...action }) => action)
+    .map(({ action }) => action)
     .slice(0, 8); // top 8 actions
 }
 
