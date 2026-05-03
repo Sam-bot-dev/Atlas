@@ -29,3 +29,7 @@ services:
         value: llama-3.3-70b-versatile
       - key: GOOGLE_VISION_API_KEY
         sync: false
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

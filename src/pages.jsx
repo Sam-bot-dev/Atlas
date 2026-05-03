@@ -6,6 +6,7 @@ import { AtlasAPI } from './api';
 // Atlas — Other dashboard pages: Analytics, Sources, Automations, Reports, Settings
 
 export const Analytics = ({ business: initialBusiness }) => {
+  const safeBusiness = initialBusiness?.id ? initialBusiness : null;
   const [range, setRange] = React.useState('6M');
   const [cat, setCat] = React.useState('All');
   const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});
@@ -15,25 +16,29 @@ export const Analytics = ({ business: initialBusiness }) => {
   const fileInputRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!initialBusiness.id || ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'].includes(initialBusiness.id)) return;
+    if (!safeBusiness?.id) return;
     setLoading(true);
-    AtlasAPI.metrics.summary(initialBusiness.id, range)
+    AtlasAPI.metrics.summary(safeBusiness.id, range)
       .then(res => { if (res && Object.keys(res).length > 0) setMetrics(res); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [initialBusiness.id, range]);
+  }, [safeBusiness?.id, range]);
 
   const handleImportExcel = async (file) => {
-    if (!file) return;
+    if (!file || !safeBusiness?.id) {
+      setImportMessage('No business selected');
+      setTimeout(() => setImportMessage(''), 2000);
+      return;
+    }
     setImportLoading(true);
     setImportMessage('Importing metrics...');
     try {
-      const result = await AtlasAPI.metrics.importExcel(initialBusiness.id, file);
+      const result = await AtlasAPI.metrics.importExcel(safeBusiness.id, file);
       setImportMessage(`✓ Successfully updated metrics for ${result.totalUpdated} business(es)`);
       setTimeout(() => {
         setImportMessage('');
         setLoading(true);
-        AtlasAPI.metrics.summary(initialBusiness.id, range)
+        AtlasAPI.metrics.summary(safeBusiness.id, range)
           .then(res => { if (res && Object.keys(res).length > 0) setMetrics(res); })
           .catch(console.error)
           .finally(() => setLoading(false));
@@ -60,7 +65,9 @@ export const Analytics = ({ business: initialBusiness }) => {
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader
+      {safeBusiness ? (
+        <>
+          <SectionHeader
         eyebrow="Trends"
         title="Analytics"
         subtitle="Cross-source trends with applied filters."
@@ -78,6 +85,7 @@ export const Analytics = ({ business: initialBusiness }) => {
           </div>
         }
       />
+
 
       {/* Excel Import Section */}
       <div className="card" style={{ padding: 18, marginBottom: 12, background: 'linear-gradient(135deg, var(--bg-subtle) 0%, var(--bg-elevated) 100%)' }}>
@@ -216,9 +224,26 @@ export const Analytics = ({ business: initialBusiness }) => {
           )}
         </div>
       </div>
+
+        )}
+        : (
+          <div style={{ padding: '64px 32px', textAlign: 'center', maxWidth: 500, margin: '0 auto' }}>
+            <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 12, color: 'var(--ink-2)' }}>Select a business</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32, lineHeight: 1.5 }}>
+              Choose a business from the sidebar to view analytics. Demo businesses are pre-loaded with sample data.
+            </div>
+            <div style={{ opacity: 0.5, fontSize: 12, color: 'var(--ink-4)' }}>
+              No API calls made until business selected.
+            </div>
+          </div>
+        )}
+      )}
     </div>
   );
 };
+
+export const DataSources = ({ business, onRefresh }) => {
+
 
 export const DataSources = ({ business, onRefresh }) => {
   const [dragOver, setDragOver] = React.useState(false);
