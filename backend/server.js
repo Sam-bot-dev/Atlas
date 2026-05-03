@@ -54,6 +54,7 @@ app.use('/api/v1/businesses/:bizId/insights', require('./routes/insightsRoutes')
 app.use('/api/v1/businesses/:bizId/actions', require('./routes/actionsRoutes'));
 app.use('/api/v1/businesses/:bizId/automations', require('./routes/automationsRoutes'));
 app.use('/api/v1/businesses/:bizId/uploads', require('./routes/uploadsRoutes'));
+app.use('/api/v1/businesses/:bizId/tasks', require('./routes/taskRoutes'));
 app.use('/api/v1/businesses/:bizId', require('./routes/businessExtrasRoutes'));
 
 // Health check

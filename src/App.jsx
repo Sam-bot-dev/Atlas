@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Landing } from './landing';
 import { Login, Onboarding } from './auth-onboarding';
 import { Sidebar, TopBar, BusinessSwitcher } from './shell';
 import { Icon } from './ui';
 import { Overview } from './overview';
-import { Analytics, DataSources, Automations, Reports, Settings } from './pages';
+import { Pages } from './pages';
 import { PricingPage } from './pricing';
 import { DocsPage } from './docs';
 import { ChatPanel } from './chat';
@@ -33,43 +33,45 @@ export default function App() {
   const [currentBusiness, setCurrentBusiness] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Memoized dynamic import loader
+  const loadAtlasAPI = useCallback(async () => {
+    const { AtlasAPI } = await import('./api');
+    return AtlasAPI;
+  }, []);
+
   useEffect(() => {
     if (view === 'dashboard') {
-      import('./api').then(({ AtlasAPI }) => {
-        AtlasAPI.businesses.list().then(list => {
+      loadAtlasAPI().then((AtlasAPI) => {
+        AtlasAPI.businesses.list().then((list) => {
           if (list && list.length > 0) {
             setApiBusinesses(list);
-            // If current bizId is not in the list, pick the first one
-            if (!bizId || !list.find(b => b.id === bizId)) {
+            if (!bizId || !list.find((b) => b.id === bizId)) {
               setBizId(list[0].id);
             }
           }
         }).catch(() => {});
       });
     }
-  }, [view]);
+  }, [view, bizId, loadAtlasAPI]);
 
-  const refreshBusiness = () => {
+  const refreshBusiness = useCallback(() => {
     if (view === 'dashboard' && bizId) {
-      import('./api').then(({ AtlasAPI }) => {
-        AtlasAPI.businesses.get(bizId).then(data => {
+      loadAtlasAPI().then((AtlasAPI) => {
+        AtlasAPI.businesses.get(bizId).then((data) => {
           setCurrentBusiness(data);
         }).catch(() => {
           if (ATLAS_BUSINESSES[bizId]) setCurrentBusiness(ATLAS_BUSINESSES[bizId]);
         });
       });
     }
-  };
+  }, [view, bizId, loadAtlasAPI]);
 
   useEffect(() => {
     refreshBusiness();
-  }, [view, bizId]);
-
-  const business = currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker'];
-  const effectiveBusiness = { ...business, isDemo: isDemoMode || (business.isDemo === true) };
+  }, [refreshBusiness]);
 
   useEffect(() => {
-    import('./api').then(async ({ AtlasAPI }) => {
+    loadAtlasAPI().then(async (AtlasAPI) => {
       try {
         const user = await AtlasAPI.auth.me();
         setCurrentUser(user);
@@ -81,11 +83,9 @@ export default function App() {
             const s = JSON.parse(saved);
             if (s.view) setView(s.view);
             if (s.page) setPage(s.page);
-            
-            // Guard stale bizId (7.22)
             if (s.bizId) {
               const allIds = [
-                ...apiBusinesses.map(b => b.id),
+                ...apiBusinesses.map((b) => b.id),
                 ...Object.keys(ATLAS_BUSINESSES)
               ];
               if (allIds.includes(s.bizId)) {
@@ -93,18 +93,24 @@ export default function App() {
               }
             }
           }
-        } catch (e) {}
+} catch (e) {
+        // Ignore storage errors
       }
+    }
     });
   }, []);
 
   useEffect(() => {
-    try { sessionStorage.setItem('atlas-state', JSON.stringify({ view, bizId, page })); } catch (e) {}
+    try { 
+      sessionStorage.setItem('atlas-state', JSON.stringify({ view, bizId, page })); 
+    } catch (e) {
+      // Ignore storage errors
+    }
   }, [view, bizId, page]);
 
   const handleDemo = async (id) => {
     try {
-      const { AtlasAPI } = await import('./api');
+      const { AtlasAPI } = await loadAtlasAPI();
       await AtlasAPI.auth.login('demo@atlas.ai', 'atlas123');
       setIsDemoMode(true);
       setBizId(id);
@@ -114,20 +120,18 @@ export default function App() {
       console.error('Demo login failed:', e);
     }
   };
-  const handleLogin = async (user) => { 
+
+  const handleLogin = (user) => { 
     if (user) setCurrentUser(user); 
     setView('dashboard'); 
   };
-  const handleOnboardComplete = (user) => { if (user) setCurrentUser(user); setView('dashboard'); setPage('overview'); };
 
-  const PageComponent = {
-    overview: Overview,
-    analytics: Analytics,
-    sources: DataSources,
-    automations: Automations,
-    reports: Reports,
-    settings: Settings,
-  }[page] || Overview;
+  const handleOnboardComplete = (user) => { 
+    if (user) setCurrentUser(user); 
+    setView('dashboard'); 
+    setPage('overview'); 
+  };
+
   const allBusinesses = apiBusinesses.reduce((acc, biz) => ({
     ...acc,
     [biz.id]: {
@@ -148,104 +152,114 @@ export default function App() {
   const densityClass = tweaks.density === 'compact' ? 'compact' : '';
   const darkClass = tweaks.theme === 'dark' ? 'dark' : '';
 
-  return (
-React.useEffect(() => {
-  const handleKeyDown = (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      setShowChat(true);
-    }
-  };
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
-}, []);
+  // Keyboard shortcut for chat
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowChat(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-<div className={`${sharpClass} ${densityClass} ${darkClass}`} style={{ minHeight: '100vh' }} data-screen-label={view === 'dashboard' ? page : view}>
+  return (
+    <div className={`${sharpClass} ${densityClass} ${darkClass}`} style={{ minHeight: '100vh' }} data-screen-label={view === 'dashboard' ? page : view}>
       {view === 'landing' && <Landing onDemo={handleDemo} onLogin={() => setView('login')} onSignup={() => setView('onboarding')} onNavigate={setView}/>}
       {view === 'login' && <Login onLogin={handleLogin} onBack={() => setView('landing')} onSignup={() => setView('onboarding')}/>}
       {view === 'onboarding' && <Onboarding onComplete={handleOnboardComplete} onBack={() => setView('landing')}/>}
       {view === 'pricing' && <PricingPage onBack={() => setView('landing')} onDemo={handleDemo} onSignup={() => setView('onboarding')} onLogin={() => setView('login')} onNavigate={setView}/>}
       {view === 'docs' && <DocsPage onBack={() => setView('landing')} onDemo={handleDemo} onSignup={() => setView('onboarding')} onLogin={() => setView('login')} onNavigate={setView}/>}
       {view === 'dashboard' && (
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <>
+          <div style={{ display: 'flex', minHeight: '100vh' }}>
             <Sidebar
-            active={page}
-            onChange={setPage}
-            business={effectiveBusiness}
-            isDemo={effectiveBusiness.isDemo}
-            onSwitch={() => setShowSwitcher(true)}
-            onExit={async () => {
-              try {
-                const { AtlasAPI } = await import('./api');
-                await AtlasAPI.auth.logout();
-              } finally {
-                setCurrentUser(null);
-                setIsDemoMode(false);
-                setView('landing');
-              }
-            }}
-          />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <TopBar
-              title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings' })[page]}
-              business={business}
-              user={currentUser}
+              active={page}
+              onChange={setPage}
+              business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
+              isDemo={isDemoMode || (currentBusiness?.isDemo === true)}
+              onSwitch={() => setShowSwitcher(true)}
+              onExit={async () => {
+                try {
+                  const { AtlasAPI } = await loadAtlasAPI();
+                  await AtlasAPI.auth.logout();
+                } finally {
+                  setCurrentUser(null);
+                  setIsDemoMode(false);
+                  setView('landing');
+                }
+              }}
             />
-            <div style={{ flex: 1 }}>
-              <PageComponent business={business} onRefresh={refreshBusiness} key={bizId + page}/>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+              <TopBar
+                title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings' })[page]}
+                business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
+                user={currentUser}
+              />
+              <div style={{ flex: 1 }}>
+            <Pages business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} onRefresh={refreshBusiness} key={bizId + page}/>
+              </div>
+              {/* Chat Trigger FAB */}
+              {!showChat && (
+                <button 
+                  className="btn btn-primary fade-in" 
+                  style={{ position: 'fixed', right: 24, bottom: 24, width: 56, height: 56, borderRadius: 28, boxShadow: 'var(--shadow-lg)', justifyContent: 'center', zIndex: 1900 }}
+                  onClick={() => setShowChat(true)}
+                >
+                  <Icon name="message" size={24}/>
+                </button>
+              )}
+              {showChat && <ChatPanel business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} onClose={() => setShowChat(false)}/>}
             </div>
-            
-            {/* Chat Trigger FAB */}
-            {!showChat && (
-              <button 
-                className="btn btn-primary fade-in" 
-                style={{ position: 'fixed', right: 24, bottom: 24, width: 56, height: 56, borderRadius: 28, boxShadow: 'var(--shadow-lg)', justifyContent: 'center', zIndex: 1900 }}
-                onClick={() => setShowChat(true)}
-              >
-                <Icon name="message" size={24}/>
-              </button>
+            {showSwitcher && (
+              <BusinessSwitcher 
+                current={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} 
+                allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name, isDemo: false })), ...ATLAS_BUSINESS_LIST]} 
+                allBusinesses={allBusinesses} 
+                onSelect={(id) => {
+                  setIsDemoMode(ATLAS_BUSINESS_LIST.some(b => b.id === id));
+                  setBizId(id);
+                  // Optimistically show known data instantly to avoid baker flash
+                  if (allBusinesses[id]) setCurrentBusiness(allBusinesses[id]);
+                }} 
+                onClose={() => setShowSwitcher(false)}
+              />
             )}
-            
-            {showChat && <ChatPanel business={business} onClose={() => setShowChat(false)}/>}
           </div>
-{showSwitcher && <BusinessSwitcher current={effectiveBusiness} allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name, isDemo: false })), ...ATLAS_BUSINESS_LIST]} allBusinesses={allBusinesses} onSelect={(id) => {
-  setIsDemoMode(ATLAS_BUSINESS_LIST.some(b => b.id === id));
-  setBizId(id);
-}} onClose={() => setShowSwitcher(false)}/>}
-        </div>
-      )}
-
-      {import.meta.env.DEV && (
-        <TweaksPanel title="Tweaks">
-          <TweakSection label="Layout">
-            <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)} options={[{ value: 'balanced', label: 'Balanced' }, { value: 'compact', label: 'Compact' }]}/>
-            <TweakToggle label="Sharper corners" value={tweaks.sharpEdges} onChange={(v) => setTweak('sharpEdges', v)}/>
-            <TweakRadio label="Theme" value={tweaks.theme} onChange={(v) => setTweak('theme', v)} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}/>
-          </TweakSection>
-          <TweakSection label="Demo business">
-            <TweakSelect label="Active business" value={bizId} onChange={setBizId} options={ATLAS_BUSINESS_LIST.map(b => ({ value: b.id, label: b.name }))}/>
-          </TweakSection>
-          <TweakSection label="Navigation">
-            <TweakSelect label="Jump to view" value={view} onChange={setView} options={[
-              { value: 'landing', label: 'Landing page' },
-              { value: 'pricing', label: 'Pricing' },
-              { value: 'docs', label: 'Docs' },
-              { value: 'login', label: 'Login' },
-              { value: 'onboarding', label: 'Onboarding' },
-              { value: 'dashboard', label: 'Dashboard' },
-            ]}/>
-            {view === 'dashboard' && (
-              <TweakSelect label="Dashboard page" value={page} onChange={setPage} options={[
-                { value: 'overview', label: 'Overview' },
-                { value: 'analytics', label: 'Analytics' },
-                { value: 'sources', label: 'Data sources' },
-                { value: 'automations', label: 'Automations' },
-                { value: 'reports', label: 'Reports' },
-                { value: 'settings', label: 'Settings' },
-              ]}/>
-            )}
-          </TweakSection>
-        </TweaksPanel>
+          {import.meta.env.DEV && (
+            <TweaksPanel title="Tweaks">
+              <TweakSection label="Layout">
+                <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)} options={[{ value: 'balanced', label: 'Balanced' }, { value: 'compact', label: 'Compact' }]}/>
+                <TweakToggle label="Sharper corners" value={tweaks.sharpEdges} onChange={(v) => setTweak('sharpEdges', v)}/>
+                <TweakRadio label="Theme" value={tweaks.theme} onChange={(v) => setTweak('theme', v)} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}/>
+              </TweakSection>
+              <TweakSection label="Demo business">
+                <TweakSelect label="Active business" value={bizId} onChange={setBizId} options={ATLAS_BUSINESS_LIST.map(b => ({ value: b.id, label: b.name }))}/>
+              </TweakSection>
+              <TweakSection label="Navigation">
+                <TweakSelect label="Jump to view" value={view} onChange={setView} options={[
+                  { value: 'landing', label: 'Landing page' },
+                  { value: 'pricing', label: 'Pricing' },
+                  { value: 'docs', label: 'Docs' },
+                  { value: 'login', label: 'Login' },
+                  { value: 'onboarding', label: 'Onboarding' },
+                  { value: 'dashboard', label: 'Dashboard' },
+                ]}/>
+                {view === 'dashboard' && (
+                  <TweakSelect label="Dashboard page" value={page} onChange={setPage} options={[
+                    { value: 'overview', label: 'Overview' },
+                    { value: 'analytics', label: 'Analytics' },
+                    { value: 'sources', label: 'Data sources' },
+                    { value: 'automations', label: 'Automations' },
+                    { value: 'reports', label: 'Reports' },
+                    { value: 'settings', label: 'Settings' },
+                  ]}/>
+                )}
+              </TweakSection>
+            </TweaksPanel>
+          )}
+        </>
       )}
     </div>
   );

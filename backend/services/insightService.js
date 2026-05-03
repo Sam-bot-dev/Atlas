@@ -86,6 +86,12 @@ async function gatherBusinessContext(businessId, business, metrics) {
   const currentDay = now.getDay();
   const currentMonth = now.getMonth();
 
+  // Load goals (8.8)
+  let goals = [];
+  try {
+    goals = JSON.parse(business.goals || '[]');
+  } catch {}
+
   return {
     business: {
       id: businessId,
@@ -93,7 +99,9 @@ async function gatherBusinessContext(businessId, business, metrics) {
       type: business.type || business.category || 'Business',
       location: business.location || business.address || 'India',
       category: business.category,
+      goals,
     },
+
     metrics,
     patterns: {
       recentOrderCount: orders.slice(0, 7).length,
@@ -183,29 +191,7 @@ async function generateInsightsViaLLM(context) {
       }
     ]`;
 
-    const userPrompt = `
-Business: ${context.business.name} (${context.business.type})
-Location: ${context.business.location}
-
-Current Metrics:
-- Revenue: ${context.metrics.revenue.value} (${context.metrics.revenue.delta > 0 ? '+' : ''}${context.metrics.revenue.delta}%)
-- Orders: ${context.metrics.orders.value} (${context.metrics.orders.delta > 0 ? '+' : ''}${context.metrics.orders.delta}%)
-- Conversion: ${context.metrics.conversion.value}%
-- Inventory Health: ${context.metrics.inventory.value}%
-- Customer Retention: ${context.metrics.retention.value}%
-- Review Sentiment: ${context.metrics.sentiment.value}/5
-
-Context:
-- Recent orders: ${context.patterns.recentOrderCount}
-- Avg order value: ₹${context.patterns.avgOrderValue}
-- Low stock items: ${context.patterns.lowStockItemsCount}
-- Negative reviews (recent): ${context.patterns.negativeReviewsCount}
-- Repeat customers: ${context.patterns.repeatCustomerCount}/${context.patterns.totalCustomers}
-
-Time: ${context.timeContext.isDayOfWeek}, ${getSeason(context.timeContext.currentMonth)}, ${context.timeContext.currentHour}:00
-Environmental: ${context.environmental.temp}, ${context.environmental.condition} (${context.environmental.impact})
-
-Generate insights explaining why these metrics are at these levels. Encourage taking advantage of favorable weather or mitigating negative weather impacts where applicable.`;
+    const userPrompt = `\nBusiness: ${context.business.name} (${context.business.type})\nLocation: ${context.business.location}\nGoals: ${context.business.goals.join(', ') || 'General growth'}\n\nCurrent Metrics:\n- Revenue: ${context.metrics.revenue.value} (${context.metrics.revenue.delta > 0 ? '+' : ''}${context.metrics.revenue.delta}%)\n- Orders: ${context.metrics.orders.value} (${context.metrics.orders.delta > 0 ? '+' : ''}${context.metrics.orders.delta}%)\n- Conversion: ${context.metrics.conversion.value}%\n- Inventory Health: ${context.metrics.inventory.value}%\n- Customer Retention: ${context.metrics.retention.value}%\n- Review Sentiment: ${context.metrics.sentiment.value}/5\n\nContext:\n- Recent orders: ${context.patterns.recentOrderCount}\n- Avg order value: ₹${context.patterns.avgOrderValue}\n- Low stock items: ${context.patterns.lowStockItemsCount}\n- Negative reviews (recent): ${context.patterns.negativeReviewsCount}\n- Repeat customers: ${context.patterns.repeatCustomerCount}/${context.patterns.totalCustomers}\n\nTime: ${context.timeContext.isDayOfWeek}, ${getSeason(context.timeContext.currentMonth)}, ${context.timeContext.currentHour}:00\nEnvironmental: ${context.environmental.temp}, ${context.environmental.condition} (${context.environmental.impact})\n\nGenerate insights explaining why these metrics are at these levels, aligned with goals. Encourage taking advantage of favorable weather or mitigating negative weather impacts where applicable. Prioritize actions for ${context.business.goals.join(', ') || 'growth'}.`;
 
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -214,7 +200,7 @@ Generate insights explaining why these metrics are at these levels. Encourage ta
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_INSIGHT_MODEL || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -400,7 +386,7 @@ async function askAtlas(businessId, query) {
 Business: ${context.business.name} (${context.business.type})
 Location: ${context.business.location}
 Current Metrics: Revenue ${context.metrics.revenue?.value || 0}, Orders ${context.metrics.orders?.value || 0}
-Recent Insights: ${business.insights.slice(0, 2).map(i => i.title).join(', ')}
+Recent Insights: ${business.insights.map(i => i.title).join(', ')}
 
 User Question: "${query}"
 
@@ -413,7 +399,7 @@ Provide a data-backed answer as Atlas.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_INSIGHT_MODEL || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

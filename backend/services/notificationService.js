@@ -6,7 +6,7 @@ async function sendEmailAlert(to, subject, body) {
   if (resend) {
     try {
       await resend.emails.send({
-        from: 'Atlas AI <alerts@atlas.ai>',
+        from: process.env.EMAIL_FROM || 'Atlas AI <onboarding@resend.dev>',
         to: [to],
         subject: subject,
         html: `<strong>${subject}</strong><p>${body}</p>`,

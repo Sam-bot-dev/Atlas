@@ -33,7 +33,7 @@ const groqExtract = async ({ rawText, rows, business }) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+      model: process.env.GROQ_EXTRACTION_MODEL || process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
       temperature: 0,
       response_format: { type: 'json_object' },
       messages: [

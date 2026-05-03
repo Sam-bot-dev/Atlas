@@ -20,7 +20,16 @@ const seed = async () => {
 
   console.log('✅ User created');
 
-  // 2. Full Sample Data for 6 Indian Demo Businesses (from src/data.jsx)
+  // Clear existing demo data
+  await prisma.business.deleteMany({ where: { isDemo: true } });
+  await prisma.metric.deleteMany({ where: { business: { isDemo: true } } });
+  await prisma.insight.deleteMany({ where: { business: { isDemo: true } } });
+  await prisma.action.deleteMany({ where: { business: { isDemo: true } } });
+  await prisma.automation.deleteMany({ where: { business: { isDemo: true } } });
+  await prisma.task.deleteMany({ where: { business: { isDemo: true } } });
+  console.log('🗑️ Cleared old demo data');
+
+  // 2. Full Sample Data for 6 Indian Demo Businesses
   const businesses = [
     {
       id: 'baker',
@@ -215,7 +224,7 @@ const seed = async () => {
       });
     }
 
-    // Create insights (use title as unique-ish identifier for seed)
+    // Create insights 
     for (const i of insights) {
       await prisma.insight.create({
         data: { ...i, businessId: biz.id }
@@ -228,6 +237,45 @@ const seed = async () => {
         data: { ...a, businessId: biz.id }
       });
     }
+
+    // Create demo automations (8.4/8.10)
+    await prisma.automation.createMany({
+      data: [
+        {
+          businessId: biz.id,
+          trigger: 'inventory_low',
+          actionType: 'email_alert',
+          status: 'active',
+          payload: JSON.stringify({ to: 'owner@example.com' })
+        },
+        {
+          businessId: biz.id,
+          trigger: 'negative_review',
+          actionType: 'create_task',
+          status: 'active',
+          payload: JSON.stringify({})
+        }
+      ]
+    });
+
+    // Create demo tasks (8.3)
+    await prisma.task.createMany({
+      data: [
+        {
+          businessId: biz.id,
+          title: 'Follow up on low stock reorder',
+          description: 'Check maida and sugar levels',
+          status: 'pending',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        }
+      ]
+    });
+
+    // Set demo goals (8.8)
+    await prisma.business.update({
+      where: { id: biz.id },
+      data: { goals: JSON.stringify(['optimize_inventory', 'increase_revenue']) }
+    });
     
     console.log(`✅ Seeded ${bizFields.name}`);
   }
@@ -243,3 +291,4 @@ seed()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

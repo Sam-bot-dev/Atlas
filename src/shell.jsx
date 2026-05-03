@@ -1,4 +1,4 @@
-`import React from 'react';
+import React from 'react';
 import { BizAvatar, Icon } from './ui';
 import { ATLAS_BUSINESS_LIST, ATLAS_BUSINESSES } from './data';
 import { AtlasAPI } from './api';
@@ -75,7 +75,7 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo }
         <div className="card" style={{ padding: 12, background: 'var(--bg-elevated)' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
       <Icon name="sparkles" size={13}/>
-      Atlas Pro trial
+      Atlas Pro trial {/* 7.19 dynamic */}
     </div>
     <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>Trial active</div>
           <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Upgrade</button>
@@ -165,7 +165,7 @@ const AskAtlas = ({ onClose, business }) => {
           <input
             autoFocus className="input"
             style={{ border: 'none', padding: 0, fontSize: 14, flex: 1 }}
-            placeholder={`Ask anything about ${business.name}…`}
+            placeholder={'Ask anything about ' + business.name + '...'}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAsk(q)}

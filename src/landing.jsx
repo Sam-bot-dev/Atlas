@@ -29,7 +29,7 @@ export const Landing = ({ onDemo, onLogin, onSignup, onNavigate = () => {} }) =>
       <div className="fade-in" style={{ maxWidth: 1100, margin: '0 auto', padding: '80px 32px 40px', textAlign: 'center', width: '100%' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)', fontSize: 13, color: 'var(--ink-2)', marginBottom: 32, transition: 'transform 0.2s ease', cursor: 'default' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
           <span className="dot dot-positive pulse-live"></span>
-          <span>New — multi-source insight engine in v2.4</span>
+          <span>New — multi-source insight engine</span>
           <Icon name="arrow-right" size={12}/>
         </div>
         <h1 style={{ fontSize: 72, lineHeight: 1.05, letterSpacing: '-0.035em', fontWeight: 600, margin: '0 0 24px', color: 'var(--ink-1)' }}>
@@ -57,7 +57,7 @@ export const Landing = ({ onDemo, onLogin, onSignup, onNavigate = () => {} }) =>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40, flexWrap: 'wrap' }}>
           {[
             { value: '6', label: 'business types covered' },
-            { value: '80+', label: 'data integrations' },
+            { value: '8', label: 'data integrations' },
             { value: '< 2 min', label: 'to first insight' },
             { value: '100%', label: 'grounded in your data' },
           ].map((s, i) => (

@@ -2,6 +2,7 @@ import React from 'react';
 import { Icon, Delta, fmtINR, SectionHeader, SkeletonLine, SkeletonChart, SkeletonTableRow } from './ui';
 import { LineChart, BarChart } from './charts';
 import { AtlasAPI } from './api';
+import { Tasks } from './Tasks';
 
 // Tabbed dashboard pages
 export const Analytics = ({ business: initialBusiness }) => {
@@ -43,7 +44,7 @@ export const Analytics = ({ business: initialBusiness }) => {
     }
   };
 
-        const downloadTemplate = async () => {
+  const downloadTemplate = async () => {
     try {
       const res = await AtlasAPI.metrics.downloadTemplate();
       const blob = new Blob([res], { type: 'text/csv' });
@@ -168,10 +169,10 @@ export const DataSources = ({ business }) => {
   const fileInputRef = React.useRef(null);
 
   const sources = [
-    { name: 'Square POS', status: 'connected', last: 'Synced 4 min ago', icon: 'database' },
-    { name: 'Google Business', status: 'connected', last: 'Synced 1 hour ago', icon: 'globe' },
-    { name: 'Instagram', status: 'connected', last: 'Synced 12 min ago', icon: 'image' },
-    { name: 'Inventory system', status: 'available', last: 'Connect', icon: 'package' },
+    { name: 'Square POS', status: 'connected', last: 'Synced 4 min ago', icon: 'database', mock: true },
+    { name: 'Google Business', status: 'connected', last: 'Synced 1 hour ago', icon: 'globe', mock: true },
+    { name: 'Instagram', status: 'connected', last: 'Synced 12 min ago', icon: 'image', mock: true },
+    { name: 'Inventory system', status: 'available', last: 'Connect', icon: 'package', mock: false },
   ];
 
   const handleDrop = (e) => {
@@ -183,7 +184,7 @@ export const DataSources = ({ business }) => {
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader eyebrow="Inputs" title="Data sources" subtitle="Connect sources for insights." />
+      <SectionHeader eyebrow="Inputs" title="Data sources" subtitle="Connect sources for insights. Revenue from Square POS, sentiment from Google Business."/>
       <div 
         className="card"
         onDragOver={(e) => e.preventDefault() || setDragOver(true)}
@@ -210,7 +211,10 @@ export const DataSources = ({ business }) => {
                 <div style={{ fontWeight: 500 }}>{s.name}</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{s.last}</div>
               </div>
-              <span style={{ fontSize: 12, padding: '2px 8px', background: 'var(--bg-positive)', borderRadius: 4 }}>Connected</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <span style={{ fontSize: 12, padding: '2px 8px', background: 'var(--bg-positive)', borderRadius: 4 }}>Connected</span>
+                {s.mock && <span className="badge" style={{ background: 'var(--warning)', color: 'var(--warning-fg)' }}>Demo</span>}
+              </div>
             </div>
           </div>
         ))}
@@ -219,18 +223,85 @@ export const DataSources = ({ business }) => {
   );
 };
 
-export const Automations = ({ business }) => (
-  <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-    <SectionHeader eyebrow="Autopilot" title="Automations" subtitle="Rules that run automatically." />
-    <div className="card" style={{ padding: 18 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Active</div>
-      <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>No automations configured.</div>
-      <button className="btn btn-primary" style={{ marginTop: 16 }}>
-        <Icon name="plus" /> Add automation
+export const Automations = ({ business }) => {
+  const [autos, setAutos] = React.useState([]);
+  const [suggested, setSuggested] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!business?.id || business.isDemo) {
+      setLoading(false);
+      return;
+    }
+    Promise.all([
+      AtlasAPI.automations.list(business.id),
+      AtlasAPI.automations.suggested(business.id)
+    ]).then(([list, sugg]) => {
+      setAutos(list || []);
+      setSuggested(sugg || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [business?.id]);
+
+  const Toggle = ({ auto }) => {
+    const [status, setStatus] = React.useState(auto.status);
+    const toggle = async () => {
+      try {
+        await AtlasAPI.automations.toggle(business.id, auto.id);
+        setStatus(status === 'active' ? 'paused' : 'active');
+      } catch (e) {
+        // Ignore toggle errors
+      }
+    };
+    return (
+      <button className={`btn btn-sm ${status === 'active' ? 'btn-success' : 'btn-warning'}`} onClick={toggle}>
+        {status === 'active' ? 'Active' : 'Paused'}
       </button>
+    );
+  };
+
+  if (loading) return <div style={{ padding: 64 }}><SkeletonLine style={{ width: 200 }} /></div>;
+
+  return (
+    <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
+      <SectionHeader eyebrow="Autopilot" title="Automations" subtitle="Rules that run automatically."/>
+      <div style={{ display: 'grid', gap: 24 }}>
+        {autos.length > 0 && (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Active ({autos.length})</div>
+            <div className="card" style={{ padding: 18 }}>
+              {autos.map(auto => (
+                <div key={auto.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{auto.trigger}</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{auto.actionType}</div>
+                  </div>
+                  <Toggle auto={auto} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {suggested.length > 0 && (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Suggested ({suggested.length})</div>
+            <div className="card" style={{ padding: 18 }}>
+              {suggested.map((sugg, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{sugg.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{sugg.trigger} → {sugg.action}</div>
+                  </div>
+                  <button className="btn btn-primary btn-sm">Add</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const Reports = ({ business }) => (
   <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
@@ -245,7 +316,7 @@ export const Reports = ({ business }) => (
   </div>
 );
 
-export const Settings = ({ business }) => (
+export const Settings = ({ business, onRefresh }) => (
   <div style={{ padding: '32px 32px 80px', maxWidth: 760, margin: '0 auto' }}>
     <SectionHeader eyebrow="Workspace" title="Settings" />
     <div className="card" style={{ padding: 24 }}>
@@ -296,14 +367,15 @@ export const Settings = ({ business }) => (
 export const Pages = ({ business, onRefresh }) => {
   const [activeTab, setActiveTab] = React.useState('analytics');
   const tabs = [
-    { id: 'analytics', label: 'Analytics', component: AnalyticsTab },
-    { id: 'data', label: 'Data Sources', component: DataSourcesTab },
-    { id: 'automations', label: 'Automations', component: AutomationsTab },
-    { id: 'reports', label: 'Reports', component: ReportsTab },
-    { id: 'settings', label: 'Settings', component: SettingsTab },
+    { id: 'analytics', label: 'Analytics', component: Analytics },
+    { id: 'sources', label: 'Data Sources', component: DataSources },
+    { id: 'tasks', label: 'Tasks', component: Tasks },
+    { id: 'automations', label: 'Automations', component: Automations },
+    { id: 'reports', label: 'Reports', component: Reports },
+    { id: 'settings', label: 'Settings', component: Settings },
   ];
 
-  const ActiveComponent = tabs.find(t => t.id === activeTab)?.component || AnalyticsTab;
+  const ActiveComponent = tabs.find(t => t.id === activeTab)?.component || Analytics;
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -332,4 +404,3 @@ export const Pages = ({ business, onRefresh }) => {
     </div>
   );
 };
-

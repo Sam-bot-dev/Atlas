@@ -2,10 +2,6 @@ const { prisma } = require('../prisma');
 const { extractRawContent } = require('./extractors');
 const { extractStructuredData } = require('./llmExtractor');
 const { normalizeExtraction } = require('./normalize');
-const { calculateMetrics, saveMetrics } = require('../../services/metricService');
-const { generateInsights } = require('../../services/insightService');
-const { generateActions } = require('../../services/actionService');
-
 let queue = Promise.resolve();
 
 const setJob = (id, data) =>

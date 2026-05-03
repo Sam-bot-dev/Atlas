@@ -30,20 +30,12 @@ export const ChatPanel = ({ business, onClose }) => {
 
     try {
       const res = await AtlasAPI.insights.ask(business.id, { query, context: messages });
-      const assistantMsg = { 
+      setMessages(prev => [...prev, {
         role: 'assistant', 
         content: res.answer, 
         evidence: res.evidence,
         timestamp: new Date() 
-      };
-      setMessages(prev => [...prev, assistantMsg]);
-      const assistantMsg = { 
-        role: 'assistant', 
-        content: res.answer, 
-        evidence: res.evidence,
-        timestamp: new Date() 
-      };
-      setMessages(prev => [...prev, assistantMsg]);
+      }]);
     } catch (err) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -52,7 +44,7 @@ export const ChatPanel = ({ business, onClose }) => {
       }]);
     } finally {
       setLoading(false);
-    }
+    };
   };
 
   return (

@@ -67,7 +67,7 @@ const Icon = ({ name, size = 16, className = '', strokeWidth = 1.5, color }) => 
     case 'send': return <svg {...props}><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>;
     case 'google': return <svg viewBox="0 0 24 24" width={size} height={size} className={className}><path fill="#4285F4" d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.32z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"/></svg>;
     case 'message': 
-      return <svg {...props}><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h5v-5h4v5h5c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4v-4h16v4zM8 9h8v2H8V9z"/></svg>;
+      return <svg {...props}><path d="M21 15c0 .83-.67 1.5-1.5 1.5H7.5A1.5 1.5 0 0 1 6 15V7.5A1.5 1.5 0 0 1 7.5 6h9A1.5 1.5 0 0 1 18 7.5V15zM16 14H8v-2h8v2z"/></svg>;
     default: return null;
   }
 };
@@ -122,9 +122,12 @@ const BizAvatar = ({ business, size = 32 }) => (
 );
 
 const fmtINR = (v) => {
-  if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2).replace(/\.?0+$/, '') + ' Cr';
-  if (v >= 100000)   return '₹' + (v / 100000).toFixed(2).replace(/\.?0+$/, '') + 'L';
-  return '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  if (v == null || isNaN(v)) return '₹0';
+  const num = Number(v);
+  if (isNaN(num)) return '₹0';
+  if (num >= 10000000) return '₹' + (num / 10000000).toFixed(2).replace(/\.?0+$/, '') + ' Cr';
+  if (num >= 100000)   return '₹' + (num / 100000).toFixed(2).replace(/\.?0+$/, '') + 'L';
+  return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 };
 const fmtCurrency = fmtINR;
 const fmtNumber = (v) => v.toLocaleString('en-IN');
@@ -271,6 +274,11 @@ const SkeletonTableRow = ({ cols = ['50%', '25%', '15%'], height = 48, last = fa
  * A shimmer block that stands in for a chart area.
  * Renders a subtle wave pattern to imply "graph loading".
  */
+const logError = (prefix, error) => {
+  console.error(`${prefix}:`, error);
+  // Could add Sentry/telemetry here
+};
+
 const SkeletonChart = ({ height = 180 }) => (
   <div
     className="skeleton"
@@ -297,6 +305,7 @@ export {
   Icon, AtlasLogo, Delta, BizAvatar,
   fmtINR, fmtCurrency, fmtNumber,
   SectionHeader, severityStyle,
+  logError,
   // Skeleton primitives
   SkeletonLine, SkeletonCircle,
   // Skeleton composites

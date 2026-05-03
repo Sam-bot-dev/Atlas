@@ -1,16 +1,28 @@
 // Atlas — API client
 // All endpoints stubbed. Swap API_BASE and getToken() for real backend.
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, ''); // 7.22 Vite compat
 
 const getToken = () => {
-  try { return sessionStorage.getItem('atlas-token') || ''; } catch { return ''; }
+  try { 
+    return sessionStorage.getItem('atlas-token') || localStorage.getItem('atlas-token') || ''; 
+  } catch { return ''; }
 };
 const setToken = (t) => {
-  try { sessionStorage.setItem('atlas-token', t); } catch { }
+  try { 
+    sessionStorage.setItem('atlas-token', t);
+    localStorage.setItem('atlas-token', t);
+  } catch (e) {
+    // Storage unavailable - fail silently
+  }
 };
 const clearToken = () => {
-  try { sessionStorage.removeItem('atlas-token'); } catch { }
+  try { 
+    sessionStorage.removeItem('atlas-token');
+    localStorage.removeItem('atlas-token');
+  } catch (e) {
+    // Storage unavailable - fail silently
+  }
 };
 
 const headers = (extra = {}) => ({
@@ -74,7 +86,7 @@ const AtlasAPI = {
       return data;
     },
     login: async (email, password) => {
-// const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
       const { auth } = await import('./firebase');
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdToken();
@@ -116,6 +128,7 @@ const AtlasAPI = {
               const atlasUser = await AtlasAPI.auth.exchange(token);
               resolve(atlasUser);
             } catch (e) {
+              logError('AtlasAPI.auth.me', e);
               reject(e);
             }
           } else {
@@ -148,10 +161,11 @@ const AtlasAPI = {
     list: (bizId) => get(`/businesses/${bizId}/uploads`),
     delete: (bizId, uploadId) => del(`/businesses/${bizId}/uploads/${uploadId}`),
   },
-  metrics: {
-    summary: (bizId, period = '1M') => get(`/businesses/${bizId}/metrics`, { period }),
-    series: (bizId, metric, period = '6M') => get(`/businesses/${bizId}/metrics/series/${metric}`, { period }),
+    metrics: {
+    summary: (bizId) => get(`/businesses/${bizId}/metrics`),
+    series: (bizId, metric) => get(`/businesses/${bizId}/metrics/series/${metric}`),
     peakHours: (bizId) => get(`/businesses/${bizId}/metrics/peak-hours`),
+    forecast: (bizId) => get(`/businesses/${bizId}/metrics/forecast`),
     importExcel: (bizId, file) => {
       const form = new FormData();
       form.append('file', file);
@@ -176,17 +190,14 @@ const AtlasAPI = {
     delete: (bizId, autoId) => del(`/businesses/${bizId}/automations/${autoId}`),
     suggested: (bizId) => get(`/businesses/${bizId}/automations/suggested`),
   },
-  reports: {
-    list: (bizId) => get(`/businesses/${bizId}/reports`),
-    generate: (bizId, type) => post(`/businesses/${bizId}/reports`, { type }),
-    download: (bizId, reportId) => get(`/businesses/${bizId}/reports/${reportId}/download`),
-  },
-  settings: {
-    get: (bizId) => get(`/businesses/${bizId}/settings`),
-    update: (bizId, data) => patch(`/businesses/${bizId}/settings`, data),
-    updateGoals: (bizId, goals) => patch(`/businesses/${bizId}/settings/goals`, { goals }),
-    updateDataPrefs: (bizId, prefs) => patch(`/businesses/${bizId}/settings/data-prefs`, prefs),
+tasks: {
+    list: (bizId) => get(`/businesses/${bizId}/tasks`),
+    updateStatus: (bizId, taskId, status) => patch(`/businesses/${bizId}/tasks/${taskId}/status`, { status }),
   },
 };
-
-export { AtlasAPI };
+ 
+ const logError = (prefix, error) => {
+   console.error(`${prefix}:`, error);
+ };
+ 
+ export { AtlasAPI, logError };

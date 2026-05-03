@@ -57,22 +57,41 @@ async function createAutomation({ businessId, trigger, actionType, payload }) {
 async function getSuggestedAutomations(businessId) {
   const business = await prisma.business.findUnique({
     where: { id: businessId },
-    select: { category: true, type: true },
+    include: {
+      metrics: true,
+      inventory: true
+    }
   });
+
+  const suggestions = [];
+
+  // Data-driven (8.5)
+  const inventory = business.inventory || [];
+  const lowStock = inventory.filter(i => i.quantityOnHand <= i.reorderPoint).length;
+  if (lowStock > 0) {
+    suggestions.push({
+      trigger: 'inventory_low',
+      action: 'email_alert',
+      title: `Low stock alert: ${lowStock} items need reorder`
+    });
+  }
+
+  const revenueMetric = business.metrics.find(m => m.key === 'revenue');
+  if (revenueMetric && revenueMetric.delta < -10) {
+    suggestions.push({
+      trigger: 'revenue_drop',
+      action: 'create_task',
+      title: `Revenue down ${Math.abs(revenueMetric.delta)}% - investigate`
+    });
+  }
+
+  // Fallback category-based
   const type = `${business?.type || business?.category || ''}`.toLowerCase();
-  const suggestions = [
-    { trigger: 'inventory_low', action: 'email_alert', title: 'Email on low stock' },
-    { trigger: 'negative_review', action: 'create_task', title: 'Task to review bad feedback' },
-  ];
-
   if (/cafe|baker|retail|pharmacy/.test(type)) {
-    suggestions.push({ trigger: 'revenue_drop', action: 'create_task', title: 'Task on revenue drop' });
-  }
-  if (/import|export|service/.test(type)) {
-    suggestions.push({ trigger: 'revenue_spike', action: 'email_alert', title: 'Email when revenue spikes' });
+    suggestions.push({ trigger: 'negative_review', action: 'create_task', title: 'Task to review bad feedback' });
   }
 
-  return suggestions;
+  return suggestions.slice(0, 3);
 }
 
 module.exports = {

@@ -106,7 +106,7 @@ export const Onboarding = ({ onComplete, onBack }) => {
         setBizType(parsed.bizType || "Business");
         setGoals(parsed.goals || []);
         setEmail(parsed.email || "");
-        setDetectDone(parsed.detectDone || false);
+        setDetectDone(parsed.step === 0 ? false : (parsed.detectDone || false));
       } catch (e) {}
     }
   }, []);

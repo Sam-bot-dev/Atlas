@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icon, Delta, severityStyle, fmtINR, SkeletonMetricTile, SkeletonInsightCard, SkeletonActionCard, SkeletonChart } from './ui';
+import { Icon, Delta, severityStyle, fmtINR, logError, SkeletonMetricTile, SkeletonInsightCard, SkeletonActionCard, SkeletonChart } from './ui';
 import { LineChart, DonutChart, HeatmapChart } from './charts';
 import { AtlasAPI } from './api';
 
@@ -129,12 +129,14 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
   const [insights, setInsights] = React.useState(initialBusiness.insights || []);
   const [actions, setActions] = React.useState(initialBusiness.actions || []);
   const [peakHours, setPeakHours] = React.useState(initialBusiness.peakHours || []);
+  const [forecast, setForecast] = React.useState(initialBusiness.forecast || null);
 
   // Granular loading states per section so each animates independently
   const [loadingMetrics, setLoadingMetrics] = React.useState(false);
   const [loadingInsights, setLoadingInsights] = React.useState(false);
   const [loadingActions, setLoadingActions] = React.useState(false);
   const [loadingCharts, setLoadingCharts] = React.useState(false);
+  const [loadingForecast, setLoadingForecast] = React.useState(false);
 
   const [explanation, setExplanation] = React.useState(null);
   const [appliedActions, setAppliedActions] = React.useState({});
@@ -160,37 +162,45 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
     setLoadingMetrics(true);
     AtlasAPI.metrics.summary(initialBusiness.id, period)
       .then(res => { if (active && res && Object.keys(res).length > 0) setMetrics(res); })
-      .catch(console.error)
+      .catch(e => logError('Overview metrics', e))
       .finally(() => { if (active) setLoadingMetrics(false); });
 
     // Insights
     setLoadingInsights(true);
     AtlasAPI.insights.list(initialBusiness.id)
       .then(res => { if (active && res && res.length > 0) setInsights(res); })
-      .catch(console.error)
+      .catch(e => logError('Overview insights', e))
       .finally(() => { if (active) setLoadingInsights(false); });
 
     // Actions
     setLoadingActions(true);
     AtlasAPI.actions.list(initialBusiness.id)
       .then(res => { if (active && res && res.length > 0) setActions(res); })
-      .catch(console.error)
+      .catch(e => logError('Overview actions', e))
       .finally(() => { if (active) setLoadingActions(false); });
 
-    // Peak hours / charts
-    setLoadingCharts(true);
-    Promise.all([
-      AtlasAPI.metrics.series(initialBusiness.id, 'revenue'),
-      AtlasAPI.metrics.series(initialBusiness.id, 'customerGrowth'),
-      AtlasAPI.metrics.peakHours(initialBusiness.id, period)
-    ]).then(([rev, cust, peak]) => {
-      if (active) {
-        setRevenueSeries(rev || []);
-        setCustomerGrowth(cust || []);
-        if (peak?.matrix?.length > 0) setPeakHours(peak.matrix);
-      }
-    }).catch(console.error)
-    .finally(() => { if (active) setLoadingCharts(false); });
+  // Peak hours / charts / forecast
+  setLoadingCharts(true);
+  setLoadingForecast(true);
+  Promise.all([
+    AtlasAPI.metrics.series(initialBusiness.id, 'revenue'),
+    AtlasAPI.metrics.series(initialBusiness.id, 'customerGrowth'),
+    AtlasAPI.metrics.peakHours(initialBusiness.id, period),
+    AtlasAPI.metrics.forecast(initialBusiness.id)
+  ]).then(([rev, cust, peak, forecast]) => {
+    if (active) {
+      setRevenueSeries(rev || []);
+      setCustomerGrowth(cust || []);
+      if (peak?.matrix?.length > 0) setPeakHours(peak.matrix);
+      setForecast(forecast);
+    }
+  }).catch(console.error)
+  .finally(() => {
+    if (active) {
+      setLoadingCharts(false);
+      setLoadingForecast(false);
+    }
+  });
 
     return () => { active = false; };
   }, [initialBusiness.id, period]);
@@ -199,20 +209,19 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
     try {
       if (type === 'task') {
         const res = await AtlasAPI.actions.createTask(initialBusiness.id, actionId);
-        if (res.ok) setAppliedActions(prev => ({ ...prev, [index]: true }));
+        if (res) setAppliedActions(prev => ({ ...prev, [index]: true }));
       } else if (type === 'dismiss') {
         const res = await AtlasAPI.actions.dismiss(initialBusiness.id, actionId);
-        if (res.ok) {
+        if (res) {
           setActions(prev => prev.filter(a => a.id !== actionId));
           return;
         }
       } else {
         const res = await AtlasAPI.actions.apply(initialBusiness.id, actionId);
-        if (res.ok) setAppliedActions(prev => ({ ...prev, [index]: true }));
+        if (res) setAppliedActions(prev => ({ ...prev, [index]: true }));
       }
     } catch (e) {
-      console.error('Failed to apply action', e);
-      // Do not fake-apply on real error
+      logError('Overview apply action', e);
     }
   };
 
@@ -274,7 +283,7 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
         <div>
           <div className="eyebrow" style={{ marginBottom: 8 }}>Decision view · Today</div>
           <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.025em', margin: 0, lineHeight: 1.2 }}>
-            {greeting}, {business.owner}. <span className="serif" style={{ fontStyle: 'italic', color: 'var(--ink-2)', fontWeight: 400 }}>Here's what matters.</span>
+            {greeting}, {business.owner || business.name || 'there'}. <span className="serif" style={{ fontStyle: 'italic', color: 'var(--ink-2)', fontWeight: 400 }}>Here's what matters.</span>
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -294,19 +303,12 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
         </div>
       </div>
 
-      {/* ── Section A: WHAT IS HAPPENING ─────────────────────────────── */}
+      {/* Section A: WHAT IS HAPPENING */}
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>01</span>
           <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>What is happening</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}><!-- Six leading indicators across your business --></div>
-        </div>
-
-        {/* Metric tiles — each individual tile shows its own skeleton */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-          {metricKeys.map(k => (
-            <MetricTile key={k} m={metrics[k] || fallbackMetric} loading={loadingMetrics} />
-          ))}
+          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Six leading indicators + ML forecast across your business</div>
         </div>
 
         {/* Revenue chart + spending mix */}
@@ -319,7 +321,7 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
                   {loadingMetrics
                     ? <div className="skeleton" style={{ width: 120, height: 22, borderRadius: 4 }}/>
                     : <>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{fmtINR(metrics.revenue?.value || 0)}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{fmtINR(metrics.revenue?.value)}</span>
                         <Delta value={metrics.revenue?.delta || 0}/>
                         <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>vs prev period</span>
                       </>
@@ -329,7 +331,7 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
             </div>
             {loadingCharts
               ? <div className="skeleton" style={{ width: '100%', height: 180, borderRadius: 8 }}/>
-              : <LineChart data={metrics.revenueSeries || business.revenueSeries || []} height={180} accent="var(--ink-1)"/>
+              : <LineChart data={revenueSeries} height={180} accent="var(--ink-1)"/>
             }
           </div>
           <div className="card" style={{ padding: 18 }}>
@@ -390,7 +392,7 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
           {loadingInsights
             ? [0, 1, 2].map(i => <SkeletonInsightCard key={i} />)
             : insights.length > 0
-              ? insights.map((ins, i) => <InsightCard key={i} insight={ins} onExplain={handleExplain}/>)
+              ? insights.map((ins, i) => <InsightCard key={ins.id || i} insight={ins} index={i} businessId={initialBusiness.id} onTakeAction={takeAction} onExplain={handleExplain}/>) 
               : (
                 <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
                   No insights generated yet. Connect a data source to begin analysis.
@@ -411,7 +413,7 @@ export const Overview = ({ business: initialBusiness, onRefresh }) => {
           {loadingActions
             ? [0, 1, 2].map(i => <SkeletonActionCard key={i} />)
             : actions.length > 0
-              ? actions.map((a, i) => <ActionCard key={i} action={a} onApply={(type) => apply(a.id, i, type)} applied={appliedActions[i]}/>)
+              ? actions.map((a, i) => <ActionCard key={a.id || i} action={a} onApply={(type) => apply(a.id || `action-${i}`, i, type)} applied={appliedActions[i]}/>) 
               : (
                 <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
                   No recommended actions yet.

@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-window.React = React; // Fix for production build ReferenceError: React is not defined
 import App from './App';
 import { ErrorBoundary } from './ErrorBoundary';
 import { initTelemetry } from './telemetry';

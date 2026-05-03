@@ -77,7 +77,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
         'White-label & embed',
         '99.9% uptime SLA',
         'Named architect + 24/7 support',
-        'HIPAA, SOC 2 Type II, ISO 27001',
+        'Enterprise security & compliance package (contact us)',
       ],
     },
   ];
@@ -102,11 +102,9 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
       ['External actions (Slack, email, PO drafts)', false, true, true, true],
     ]},
     { section: 'Security & compliance', rows: [
-      ['SOC 2 Type II', true, true, true, true],
       ['Single Sign-On (SSO)', false, false, true, true],
       ['Audit log', false, '30 days', '12 months', 'Custom'],
       ['Custom DPA', false, false, true, true],
-      ['HIPAA-eligible', false, false, false, true],
       ['On-prem / VPC deployment', false, false, false, true],
     ]},
     { section: 'Support', rows: [
@@ -121,7 +119,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
     { q: 'What happens at the end of my trial?', a: 'Your data and configuration are preserved. If you do not upgrade, your workspace moves to a read-only state for 30 days, after which it is archived. You can restore from archive within 90 days at no cost.' },
     { q: 'Can I switch plans later?', a: 'Yes, upgrade or downgrade at any time. Upgrades take effect immediately; downgrades apply at the end of your billing period. Annual plans are pro-rated when upgrading mid-term.' },
     { q: 'Do you offer non-profit or education discounts?', a: 'Yes — 50% off Pro and Team for verified non-profits, registered charities, and educational institutions. Email atlas@atlas.so with documentation.' },
-    { q: 'Which integrations come with each plan?', a: 'All 80+ integrations are available on every paid plan. Starter is limited to 3 simultaneously connected sources. There are no per-integration fees.' },
+    { q: 'Which integrations come with each plan?', a: 'All available integrations are included on every paid plan. Starter is limited to 3 simultaneously connected sources. There are no per-integration fees.' },
     { q: 'How is the AI different from a generic chatbot?', a: 'Atlas runs a multi-agent system grounded in your live data with deterministic retrieval, tool use, and a domain model trained on millions of small-business operating patterns. Every claim it makes cites the underlying signals so you can verify it. It is not a wrapper around a chat model.' },
     { q: 'What if my business has its own database or data warehouse?', a: 'On Team and Enterprise we connect directly to Postgres, MySQL, BigQuery, Snowflake, Redshift, and Databricks. Read-only by default; writeback is opt-in per source.' },
     { q: 'Is there a free trial for Team and Enterprise?', a: 'Yes — 14 days free on Team. Enterprise includes a guided 30-day proof of concept with one of our solution architects.' },
@@ -217,7 +215,7 @@ export const PricingPage = ({ onBack, onDemo, onSignup, onLogin, onNavigate }) =
         {/* Trust strip */}
         <div style={{ marginTop: 48, padding: 24, borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
           {[
-            { icon: 'lock', t: 'SOC 2 Type II', s: 'Audited annually' },
+            { icon: 'lock', t: 'Data encrypted at rest', s: 'AES-256 + TLS 1.3' },
             { icon: 'shield', t: 'Encrypted at rest', s: 'AES-256 + TLS 1.3' },
             { icon: 'globe', t: 'Data residency', s: 'US, EU, APAC regions' },
             { icon: 'check', t: '99.9% uptime', s: '90-day rolling avg' },
