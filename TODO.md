@@ -1,14 +1,1 @@
-# Fixing Errors: range undefined & COOP policy
-
-## Steps:
-- [x] 1. Add COOP meta to index.html
-- [x] 2. Guard API calls in src/pages.jsx Analytics useEffect for missing business.id
-- [x] 3. Add loading/no-business state in Analytics UI
-- [x] 4. Test: npm run dev, navigate to analytics with demo/no business
-- [x] 5. Update TODO with completion
-- [x] 6. Verify ErrorBoundary no longer triggers
-
-**Complete.** Guards prevent range undefined (no API call if !id), COOP meta added, clean no-business UI, JSX fixed.
-
-
-
+# Fix Vite Build Error in Atlas\n\n## Status: In Progress\n\n### 1. [ ] Create TODO.md (current step)\n### 2. [ ] Read & analyze pages.jsx again if needed\n### 3. [ ] Edit src/pages.jsx: Remove duplicate Analytics, fix malformed JSX end (`); };` → `); }`, wrap in tabbed Pages container\n### 4. [ ] npm run build to verify fix\n### 5. [ ] Update TODO.md (mark 3-4 done)\n### 6. [ ] Test with npm run dev\n### 7. [ ] attempt_completion\n\n**Details**: Tabbed UI switching Analytics/DataSources/Automations/Reports/Settings. Preserve all logic (uploads, Excel import, etc.). Isolated to pages.jsx.
