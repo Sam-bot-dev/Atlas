@@ -13,5 +13,4 @@ dist
 .env.local
 .DS_Store
 .vscode
-firebase-admin.json
-serviceAccountKey.json
+
