@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: `http${process.env.BACKEND_URL ? 's' : ''}://${process.env.BACKEND_URL || 'localhost:' + (process.env.PORT || 5000)}`,
         changeOrigin: true,
       },
     },

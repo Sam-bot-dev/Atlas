@@ -24,13 +24,11 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
   const innerW = Math.max(0, w - padL - padR);
   const innerH = height - padT - padB;
   const ys = data.map(d => d[yKey]).filter(Boolean);
-  if (ys.length === 0) {
-    const minY = 0, maxY = 1;
-    const range = 1;
-  } else {
-    const minY = Math.min(...ys, 0);
-    const maxY = Math.max(...ys);
-    const range = maxY - minY || 1;
+  let minY = 0, maxY = 1, range = 1;
+  if (ys.length > 0) {
+    minY = Math.min(...ys, 0);
+    maxY = Math.max(...ys);
+    range = maxY - minY || 1;
   }
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
   const points = data.map((d, i) => ({
@@ -166,7 +164,7 @@ const DonutChart = ({ data, size = 180, thickness = 22 }) => {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 160 }}>
         {data.map((d, i) => {
-          const pct = total > 0 ? ((d.value || 0 / total) * 100).toFixed(0) : 0;
+          const pct = total > 0 ? Math.round(((d.value || 0) / total) * 100) : 0;
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 }}/>
