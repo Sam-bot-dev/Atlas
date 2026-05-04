@@ -149,13 +149,13 @@ const ActionCard = ({ action, onApply, applied, appliedType }) => {
 };
 
 export const Overview = ({ business: initialBusiness, onNavigate }) => {
-  const [business, setBusiness] = React.useState(initialBusiness);
-  const [metrics, setMetrics] = React.useState(initialBusiness.metrics || {});  
-  const [revenueSeries, setRevenueSeries] = React.useState(initialBusiness.revenueSeries || []);
-  const [insights, setInsights] = React.useState(initialBusiness.insights || []);
-  const [actions, setActions] = React.useState(initialBusiness.actions || []);
-  const [peakHours, setPeakHours] = React.useState(initialBusiness.peakHours || []);
-  const [forecast, setForecast] = React.useState(initialBusiness.forecast || null);
+  const [business, setBusiness] = React.useState(initialBusiness || {});
+  const [metrics, setMetrics] = React.useState((initialBusiness || {}).metrics || {});  
+  const [revenueSeries, setRevenueSeries] = React.useState((initialBusiness || {}).revenueSeries || []);
+  const [insights, setInsights] = React.useState((initialBusiness || {}).insights || []);
+  const [actions, setActions] = React.useState((initialBusiness || {}).actions || []);
+  const [peakHours, setPeakHours] = React.useState((initialBusiness || {}).peakHours || []);
+  const [forecast, setForecast] = React.useState((initialBusiness || {}).forecast || null);
 
   // Granular loading states per section so each animates independently
   const [loadingMetrics, setLoadingMetrics] = React.useState(false);
@@ -200,27 +200,27 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
       icon: 'sun',
       label: 'Surat · Heatwave Alert',
     },
-    // Swasthya Medicals — Ahmedabad, Gujarat (monsoon onset, disease surge)
+    // Swasthya Medicals — Ahmedabad, Gujarat (extreme heat, dehydration surge)
     pharmacy: {
       type: 'environmental',
-      title: 'Ahmedabad Monsoon Onset — Disease Surge in 10 Days',
-      body: 'IMD has issued a yellow alert for Ahmedabad. Monsoon-related illnesses (gastroenteritis, dengue, leptospirosis) typically spike within 2 weeks of first rains. Last year ORS and Dolo-650 went out of stock on July 14.',
-      action: 'Pre-stock ORS × 600, Dolo-650 × 400, ORS sachets × 800',
-      impact: 'Capture ₹52,000 in peak monsoon demand',
-      confidence: 94,
-      icon: 'cloud-rain',
-      label: 'Ahmedabad · Monsoon Alert',
+      title: 'Ahmedabad Heatwave — Dehydration Cases Rising',
+      body: 'Ahmedabad temperatures hitting 42°C this week. Dehydration and heat-related illnesses typically spike 20–30%. ORS and electrolyte sachets saw 45% increase last heatwave. Stock up before the surge.',
+      action: 'Pre-stock ORS × 800, electrolyte sachets × 400, sunscreen × 200',
+      impact: 'Capture ₹38,000 in heatwave demand',
+      confidence: 91,
+      icon: 'sun',
+      label: 'Ahmedabad · Heatwave Alert',
     },
-    // Chai Trunk — Bengaluru, Karnataka (light showers, cold brew opportunity)
+    // Chai Trunk — Hyderabad, Telangana (light showers, cold brew opportunity)
     cafe: {
       type: 'environmental',
-      title: 'Bengaluru Light Showers — Comfort Drink Surge',
-      body: 'Bengaluru is seeing intermittent showers this week (18–22°C). Footfall at outdoor cafes drops 20% but dwell time increases 35% — customers stay longer and order more. Hot beverages and snack combos spike on rainy days.',
+      title: 'Hyderabad Light Showers — Comfort Drink Surge',
+      body: 'Hyderabad is seeing intermittent showers this week (20–24°C). Footfall at outdoor cafes drops 20% but dwell time increases 35% — customers stay longer and order more. Hot beverages and snack combos spike on rainy days.',
       action: 'Push "Rainy Day Combo" — masala chai + vada pav at ₹99',
       impact: '+₹11,000 in combo revenue this week',
       confidence: 82,
       icon: 'cloud-drizzle',
-      label: 'Bengaluru · Shower Forecast',
+      label: 'Hyderabad · Shower Forecast',
     },
     // Bharat Global Exports — Mumbai, Maharashtra (cyclone watch, port disruption)
     trade: {
@@ -298,12 +298,12 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
   React.useEffect(() => {
     if (initialBusiness.id !== lastBizIdRef.current) {
       lastBizIdRef.current = initialBusiness.id;
-      setBusiness(initialBusiness);
-      setMetrics(initialBusiness.metrics || {});
-      setRevenueSeries(initialBusiness.revenueSeries || []);
-      setInsights(initialBusiness.insights || []);
-      setActions(initialBusiness.actions || []);
-      setPeakHours(initialBusiness.peakHours || []);
+      setBusiness(initialBusiness || {});
+      setMetrics((initialBusiness || {}).metrics || {});
+      setRevenueSeries((initialBusiness || {}).revenueSeries || []);
+      setInsights((initialBusiness || {}).insights || []);
+      setActions((initialBusiness || {}).actions || []);
+      setPeakHours((initialBusiness || {}).peakHours || []);
     }
   }, [initialBusiness]);
 

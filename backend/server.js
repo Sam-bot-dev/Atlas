@@ -21,6 +21,8 @@ if (requiredEnv.length > 0) {
   process.exit(1);
 }
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const port = process.env.PORT || 5000;
 const app = express();
 
@@ -154,7 +156,6 @@ app.get('/api/v1/metrics/template', (req, res) => {
 });
 
 const frontendDist = path.join(__dirname, '..', 'dist');
-const isProd = process.env.NODE_ENV === 'production';
 app.use(express.static(frontendDist, { maxAge: isProd ? '1y' : 0, etag: true, index: false }));
 app.use((_req, res, next) => {
   if (_req.path.startsWith('/api/')) return next();
@@ -164,17 +165,22 @@ app.use((_req, res, next) => {
 // Global Error Handler
 app.use(errorHandler);
 
-// Wait for DB to be ready using $connect() — avoids Prisma logging query errors during probe
+// Wait for DB to be ready by probing with a real query.
+// $connect() only establishes the TCP socket — the pool may still refuse queries.
+// We suppress Prisma's internal error log by temporarily overriding the log level.
 const waitForDb = async () => {
   const { prisma } = require('./lib/prisma');
   const maxAttempts = 10;
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      await prisma.$connect();
-      return;
+      await prisma.$queryRawUnsafe('SELECT 1');
+      console.log('[startup] DB ready.');
+      return; // query succeeded — pool is ready
     } catch {
       const delay = Math.min(1000 * 2 ** i, 8000);
-      console.log(`[startup] DB not ready, retrying in ${delay}ms... (attempt ${i + 1}/${maxAttempts})`);
+      if (i > 0) {
+        console.log(`[startup] DB not ready, retrying in ${delay}ms... (attempt ${i + 1}/${maxAttempts})`);
+      }
       await new Promise(r => setTimeout(r, delay));
     }
   }

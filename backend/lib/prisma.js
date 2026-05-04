@@ -1,6 +1,8 @@
 /* eslint-env node */
 const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set.');
@@ -10,19 +12,14 @@ if (!process.env.DATABASE_URL) {
 const globalForPrisma = globalThis;
 
 if (!globalForPrisma.prisma) {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const adapter = process.env.DATABASE_URL.startsWith('postgresql') ? new (require('@prisma/adapter-pg'))({ connectionString: process.env.DATABASE_URL }) : undefined;
 
+  // Start with no logging so startup probe failures don't spam prisma:error.
+  // waitForDb() in server.js will confirm readiness before any real queries run.
   globalForPrisma.prisma = new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['warn'] : [],
   });
-
-  globalForPrisma.prisma.$connect()
-    .then(() => console.log('PostgreSQL connected.'))
-    .catch((err) => {
-      // Log but don't exit — waitForDb in server.js will retry
-      console.warn('Initial DB connection attempt failed:', err.message);
-    });
 }
 
 const prisma = globalForPrisma.prisma;

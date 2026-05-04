@@ -266,9 +266,9 @@ const BUSINESSES = {
     ],
     insights: [
       {
-        title: 'Pre-monsoon ORS and antihistamine demand already rising',
-        body: 'Cetirizine sales are up 38% in April — dust storms and heat are triggering allergies early. ORS sachets moved 312 units last week vs 180 in March. Monsoon arrives in Ahmedabad around June 20 — you have 7 weeks to build stock.',
-        evidence: ['Sales velocity', 'Seasonal pattern'],
+        title: 'Heatwave dehydration demand already rising',
+        body: 'ORS sales are up 45% in April — temperatures hitting 42°C are causing dehydration cases. ORS sachets moved 280 units last week vs 180 in March. Heatwave peaks in May — you have 2 weeks to build stock.',
+        evidence: ['Sales velocity', 'Temperature data'],
         severity: 'positive',
       },
       {
@@ -286,9 +286,9 @@ const BUSINESSES = {
     ],
     actions: [
       {
-        title: 'Order monsoon stock now — ORS ×600, Cetirizine ×400, Dolo-650 ×500',
-        body: 'Last June you ran out of ORS by June 28. Distributor lead time is 8 days. Order by May 10 to have stock before the first heat wave peaks. Total outlay ₹38,000, payback in 4 days of July sales.',
-        impact: 'Capture ₹52,000 peak demand',
+        title: 'Order heatwave stock now — ORS ×800, electrolytes ×400, sunscreen ×200',
+        body: 'Last May you ran out of ORS by May 18. Distributor lead time is 5 days. Order by May 8 to have stock before the heatwave peaks. Total outlay ₹24,000, payback in 3 days of June sales.',
+        impact: 'Capture ₹38,000 peak demand',
         effort: 'Low',
         confidence: 92,
         urgent: true,
@@ -314,7 +314,7 @@ const BUSINESSES = {
       { id: 'a3', trigger: 'Negative Google review', action: 'Draft empathetic reply for approval', status: 'active', last: '2 days ago' },
     ],
     suggestedAutomations: [
-      { trigger: 'Monsoon stock threshold not met by May 20', action: 'Auto-generate purchase order for ORS, Dolo-650, and antihistamines' },
+      { trigger: 'Heatwave alert issued by IMD', action: 'Auto-generate purchase order for ORS, electrolytes, and sunscreen' },
       { trigger: 'Patient last refill > 45 days', action: 'Send care check-in WhatsApp message' },
     ],
     spendingMix: [
@@ -329,7 +329,7 @@ const BUSINESSES = {
      id: 'cafe',
      name: 'Chai Trunk',
      category: 'Cafe',
-     location: 'Bengaluru, Karnataka',
+     location: 'Hyderabad, Telangana',
     initials: 'CT',
     color: '#7c2d12',
     owner: 'Arjun',
@@ -380,13 +380,13 @@ const BUSINESSES = {
       },
       {
         title: 'Cold brew sales up 56% in April — summer demand accelerating',
-        body: 'Bengaluru hit 36°C last week. Cold brew went from 4 cups/day in March to 14 cups/day in late April. You\'re currently making it in small batches. Pre-brewing 20L every 2 days cuts cost by 30% and prevents stockouts.',
+        body: 'Hyderabad hit 38°C last week. Cold brew went from 4 cups/day in March to 14 cups/day in late April. You\'re currently making it in small batches. Pre-brewing 20L every 2 days cuts cost by 30% and prevents stockouts.',
         evidence: ['Sales velocity', 'Temperature data'],
         severity: 'positive',
       },
       {
-        title: '3 long weekends in May–June will cut IT park footfall by 40%',
-        body: 'May 12 (Mother\'s Day), June 1 (Sunday), and June 15 (Sunday) are low-traffic days. Your weekday revenue depends 68% on the tech park 200m away. Pre-plan promotions for these dips — last year you lost ₹42,000 unprepared.',
+        title: '3 long weekends in May–June will cut Hitech City footfall by 40%',
+        body: 'May 12 (Mother\'s Day), June 1 (Sunday), and June 15 (Sunday) are low-traffic days. Your weekday revenue depends 68% on the Hitech City offices 200m away. Pre-plan promotions for these dips — last year you lost ₹42,000 unprepared.',
         evidence: ['Transaction timing', 'Calendar data'],
         severity: 'info',
       },
@@ -409,7 +409,7 @@ const BUSINESSES = {
       },
       {
         title: 'Run "Office Escape" combo on May 12 long weekend',
-        body: 'Masala chai + vada pav at ₹99 (vs ₹148 separate). Targets walk-in traffic when IT park is empty. Last Mother\'s Day you had 30% lower footfall — a combo deal brought it back to 80%.',
+        body: 'Masala chai + vada pav at ₹99 (vs ₹148 separate). Targets walk-in traffic when Hitech City is empty. Last Mother\'s Day you had 30% lower footfall — a combo deal brought it back to 80%.',
         impact: 'Protect ₹14,000 weekend rev',
         effort: 'Low',
         confidence: 74,
@@ -422,7 +422,7 @@ const BUSINESSES = {
     ],
     suggestedAutomations: [
       { trigger: 'Temperature forecast > 34°C tomorrow', action: 'Post cold brew + aam panna promo on Instagram story' },
-      { trigger: 'IT park holiday next day', action: 'Reduce milk order by 30% and adjust morning staff shift' },
+      { trigger: 'Hitech City holiday next day', action: 'Reduce milk order by 30% and adjust morning staff shift' },
     ],
     spendingMix: [
       { label: 'Tea, coffee & dairy', value: 88000, color: '#7c2d12' },

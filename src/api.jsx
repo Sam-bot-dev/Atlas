@@ -30,13 +30,35 @@ const clearToken = () => {
     }
   };
 
-const headers = (extra = {}) => ({
-  'Content-Type': 'application/json',
-  ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-  ...extra,
-});
+const getCSRFToken = () => {
+  try {
+    return sessionStorage.getItem('csrf-token') || '';
+  } catch { return ''; }
+};
+
+const headers = (extra = {}, method = 'GET') => {
+  const h = {
+    'Content-Type': 'application/json',
+    ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+    ...(method !== 'GET' && method !== 'HEAD' ? { 'X-CSRF-Token': getCSRFToken() } : {}),
+    ...extra,
+  };
+  return h;
+};
+
+const withTimeout = (promise, ms = 30000) => {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Request timeout after ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+};
 
 const handleResponse = async (res) => {
+  // Store CSRF token from response header for future requests
+  const csrfToken = res.headers.get('X-CSRF-Token');
+  if (csrfToken) {
+    try { sessionStorage.setItem('csrf-token', csrfToken); } catch {}
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw Object.assign(new Error(err.message || 'Request failed'), { status: res.status, data: err });
@@ -47,44 +69,44 @@ const handleResponse = async (res) => {
 const get = (path, params) => {
   const url = new URL(API_BASE + path, window.location.origin);
   if (params) Object.entries(params).forEach(([k, v]) => v != null && url.searchParams.set(k, v));
-  return fetch(url, { headers: headers() }).then(handleResponse);
+  return withTimeout(fetch(url, { headers: headers() })).then(handleResponse);
 };
 
 const post = (path, body) =>
-  fetch(API_BASE + path, { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(handleResponse);
+  withTimeout(fetch(API_BASE + path, { method: 'POST', headers: headers('POST'), body: JSON.stringify(body) })).then(handleResponse);
 
 const patch = (path, body) =>
-  fetch(API_BASE + path, { method: 'PATCH', headers: headers(), body: JSON.stringify(body) }).then(handleResponse);
+  withTimeout(fetch(API_BASE + path, { method: 'PATCH', headers: headers('PATCH'), body: JSON.stringify(body) })).then(handleResponse);
 
 const del = (path) =>
-  fetch(API_BASE + path, { method: 'DELETE', headers: headers() }).then(handleResponse);
+  withTimeout(fetch(API_BASE + path, { method: 'DELETE', headers: headers('DELETE') })).then(handleResponse);
 
 const upload = (path, formData) =>
-  fetch(API_BASE + path, {
+  withTimeout(fetch(API_BASE + path, {
     method: 'POST',
-    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    headers: { ...headers('POST'), 'Content-Type': undefined },
     body: formData,
-  }).then(handleResponse);
+  })).then(handleResponse);
 
 const AtlasAPI = {
   auth: {
     exchange: async (fbToken) => {
-      const res = await fetch(API_BASE + '/auth/firebase', {
+      const res = await withTimeout(fetch(API_BASE + '/auth/firebase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken: fbToken })
-      });
+      }));
       if (!res.ok) throw new Error('Token exchange failed');
       const data = await res.json();
       setToken(data.token);
       return data;
     },
     demoLogin: async () => {
-      const res = await fetch(API_BASE + '/auth/login', {
+      const res = await withTimeout(fetch(API_BASE + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: 'demo@atlas.ai', password: 'atlas123' })
-      });
+      }));
       if (!res.ok) throw new Error('Demo login failed');
       const data = await res.json();
       setToken(data.token);

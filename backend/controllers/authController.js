@@ -8,6 +8,16 @@ const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const normalizeName = (name = '') => String(name).trim();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Generate CSRF token for response headers
+const generateCsrfToken = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 const assertJwtSecret = () => {
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
     throw new Error('JWT_SECRET must be set to at least 32 characters');
@@ -54,12 +64,7 @@ const signupUser = asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({
-    _id: user.id,
-    name: user.name,
-    email: user.email,
-    token: generateToken(user.id, user.email),
-  });
+  sendAuthResponse(res, user);
 });
 
 // @desc    Authenticate a user
@@ -78,12 +83,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (user && user.password && (await bcrypt.compare(password, user.password))) {
-    res.json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user.id, user.email),
-    });
+    sendAuthResponse(res, user);
   } else {
     res.status(401);
     throw new Error('Invalid credentials');
@@ -104,6 +104,10 @@ const getMe = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
+  // Include CSRF token for subsequent state-changing requests
+  const csrfToken = generateCsrfToken();
+  res.setHeader('X-CSRF-Token', csrfToken);
+
   res.json({ _id: user.id, name: user.name, email: user.email, createdAt: user.createdAt });
 });
 
@@ -113,6 +117,18 @@ const generateToken = (id, email) => {
   // Fix #4: reduced expiry from 30d to 7d for better security hygiene
   return jwt.sign({ id, email }, process.env.JWT_SECRET, {
     expiresIn: '7d',
+  });
+};
+
+const sendAuthResponse = (res, user) => {
+  const token = generateToken(user.id, user.email);
+  const csrfToken = generateCsrfToken();
+  res.setHeader('X-CSRF-Token', csrfToken);
+  res.json({
+    _id: user.id,
+    name: user.name,
+    email: user.email,
+    token,
   });
 };
 
@@ -162,12 +178,7 @@ const firebaseLogin = asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({
-    _id: user.id,
-    name: user.name,
-    email: user.email,
-    token: generateToken(user.id, user.email),
-  });
+  sendAuthResponse(res, user);
 });
 
 module.exports = {

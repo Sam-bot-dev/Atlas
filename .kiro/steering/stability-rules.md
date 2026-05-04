@@ -29,6 +29,10 @@ Business fields stored as JSON strings in the DB (`peakHours`, `revenueSeries`, 
 
 Never run DB queries immediately on server start. Use `waitForDb()` in server.js which retries with exponential backoff. This prevents ECONNREFUSED errors during Render cold starts where the DB takes a few seconds to accept connections.
 
+`waitForDb()` probes with `$queryRawUnsafe('SELECT 1')` — not `$connect()`. `$connect()` only establishes the TCP socket; the connection pool may still refuse queries immediately after. A real query confirms the pool is actually ready.
+
+The Prisma client is initialized with `log: []` in production so probe failures don't spam `prisma:error` to the console. Errors from the probe are caught silently and retried.
+
 ## Frontend: always default arrays before calling array methods
 
 Any value that comes from an API response, a prop, or state that was initialized from an API response must be defaulted before calling `.map()`, `.filter()`, `.reduce()`, `.at()`, etc.

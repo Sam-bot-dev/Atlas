@@ -100,6 +100,19 @@ export const Analytics = ({ business: initialBusiness }) => {
   const fallbackMetric = { value: 0, delta: 0, label: 'No data', unit: '', period: '' };
   const revenue = metrics.revenue || fallbackMetric;
 
+  // Helper to determine xKey for series data (handles empty arrays and both 'd'/'m' formats)
+  const getXKey = (series) => {
+    const s = series || [];
+    if (s.length === 0) return 'm';
+    return s[0].d !== undefined ? 'd' : 'm';
+  };
+
+  // Helper to safely get last element (backward-compatible with .at(-1))
+  const getLast = (arr) => {
+    const s = arr || [];
+    return s[s.length - 1];
+  };
+
   if (!safeBusiness) {
     return (
       <div style={{ padding: '64px 32px', textAlign: 'center', maxWidth: 500, margin: '0 auto' }}>
@@ -168,14 +181,14 @@ export const Analytics = ({ business: initialBusiness }) => {
             </div>
             {!loading && revenue.delta != null && <Delta value={revenue.delta}/>}
           </div>
-          {loading ? <SkeletonChart /> : <LineChart data={revenueSeries} xKey={revenueSeries[0]?.d !== undefined ? 'd' : 'm'}/>}
+          {loading ? <SkeletonChart /> : <LineChart data={revenueSeries} xKey={getXKey(revenueSeries)}/>}
         </div>
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Customer growth</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
-            {loading ? <SkeletonLine width={80} height={22}/> : ((customerGrowth || []).at(-1)?.v || 0).toLocaleString('en-IN')}
+            {loading ? <SkeletonLine width={80} height={22}/> : (getLast(customerGrowth)?.v || 0).toLocaleString('en-IN')}
           </div>
-          {loading ? <SkeletonChart /> : <LineChart data={customerGrowth || []} xKey={(customerGrowth || [])[0]?.d !== undefined ? 'd' : 'm'}/>}
+          {loading ? <SkeletonChart /> : <LineChart data={customerGrowth} xKey={getXKey(customerGrowth)}/>}
         </div>
       </div>
 
@@ -186,7 +199,7 @@ export const Analytics = ({ business: initialBusiness }) => {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
             {loading ? <SkeletonLine width={100} height={22}/> : `${(ordersSeries || []).reduce((s, d) => s + (d.v || 0), 0).toLocaleString('en-IN')} orders`}
           </div>
-          {loading ? <SkeletonChart /> : <BarChart data={ordersSeries} xKey={ordersSeries[0]?.d !== undefined ? 'd' : 'm'}/>}
+          {loading ? <SkeletonChart /> : <BarChart data={ordersSeries} xKey={getXKey(ordersSeries)}/>}
         </div>
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12 }}>Top movers</div>
