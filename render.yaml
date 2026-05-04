@@ -12,7 +12,7 @@ services:
     plan: starter
     region: singapore
     buildCommand: npm install && npm run build
-    startCommand: cd backend && npm install && npx prisma migrate deploy --config prisma.config.js && npm start
+    startCommand: cd backend && npm install && npx prisma generate --config prisma.config.js && npx prisma migrate deploy --config prisma.config.js && npm start
     healthCheckPath: /api/v1/health
     autoDeploy: true
     envVars:
