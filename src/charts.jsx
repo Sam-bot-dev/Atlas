@@ -43,14 +43,14 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
     range = maxY - minY || 1;
   }
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
-   const points = data.map((d, i) => ({
-     x: padL + i * stepX,
-     y: padT + innerH - ((((d[yKey] || 0) - minY) / range) * innerH),
-   }));
+  const points = data.map((d, i) => ({
+    x: padL + i * stepX,
+    y: padT + innerH - ((range > 0 ? ((d[yKey] || 0) - minY) / range : 0) * innerH),
+  }));
   const path = points.map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`)).join(' ');
   const area = path + ` L${padL + innerW},${padT + innerH} L${padL},${padT + innerH} Z`;
   const yTicks = 4;
-  const ticks = Array.from({ length: yTicks + 1 }, (_, i) => minY + (range * i / yTicks));
+  const ticks = Array.from({ length: yTicks + 1 }, (_, i) => minY + (range > 0 ? (range * i / yTicks) : 0));
 
   return (
     <div ref={ref} style={{ width: '100%', height }}>
@@ -63,7 +63,7 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
             </linearGradient>
           </defs>
           {ticks.map((t, i) => {
-            const y = padT + innerH - ((t - minY) / range) * innerH;
+            const y = padT + innerH - ((range > 0 ? (t - minY) / range : 0) * innerH);
             return (
               <g key={i}>
                 <line x1={padL} x2={padL + innerW} y1={y} y2={y} stroke="var(--border-subtle)" strokeDasharray={i === 0 ? '0' : '2 3'}/>
