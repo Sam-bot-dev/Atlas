@@ -23,7 +23,6 @@ const fmtINR = (v) => {
  */
 export function downloadReport(snapshot, period = '1M') {
   const { name, category, location, metrics = {}, insights = [], actions = [], revenueSeries = [] } = snapshot;
-
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 

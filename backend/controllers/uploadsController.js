@@ -132,6 +132,7 @@ const deleteUpload = asyncHandler(async (req, res) => {
   }
 
   await prisma.dataSource.delete({ where: { id: job.sourceId } });
+  await prisma.uploadJob.delete({ where: { id: job.id } });
 
   const absolute = path.resolve(job.storagePath);
   await fs.unlink(absolute).catch(() => {});

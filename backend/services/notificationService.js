@@ -2,14 +2,22 @@ const { Resend } = require('resend');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// Escape HTML to prevent XSS in email bodies
+const escapeHtml = (str) =>
+  String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
 async function sendEmailAlert(to, subject, body) {
   if (resend) {
     try {
       await resend.emails.send({
         from: process.env.EMAIL_FROM || 'Atlas AI <onboarding@resend.dev>',
         to: [to],
-        subject: subject,
-        html: `<strong>${subject}</strong><p>${body}</p>`,
+        subject: escapeHtml(subject),
+        html: `<strong>${escapeHtml(subject)}</strong><p>${escapeHtml(body)}</p>`,
       });
       return true;
     } catch (error) {

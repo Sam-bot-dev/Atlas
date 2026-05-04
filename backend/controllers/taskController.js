@@ -28,7 +28,7 @@ const getTasks = async (req, res) => {
 /** @param {import('express').Request} req @param {import('express').Response} res */
 const patchTaskStatus = async (req, res) => {
   if (!await ensureOwnership(req, res)) return;
-  const allowed = ['pending', 'completed'];
+  const allowed = ['pending', 'in_progress', 'completed'];
   const status = req.body.status;
   if (!allowed.includes(status)) {
     return res.status(400).json({ error: `Invalid status. Must be one of: ${allowed.join(', ')}` });

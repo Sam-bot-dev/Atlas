@@ -139,7 +139,7 @@ export const ChatPanel = ({ business, onClose }) => {
               )}
             </div>
             <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4, textAlign: m.role === 'user' ? 'right' : 'left' }}>
-              {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
         ))}

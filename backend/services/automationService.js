@@ -29,7 +29,10 @@ async function evaluateAutomations(businessId, triggerEvent, payloadData) {
     try { payloadInfo = JSON.parse(auto.payload || '{}'); } catch { /* malformed payload — skip */ }
     
     if (auto.actionType === 'email_alert') {
-      await sendEmailAlert(payloadInfo.to || ownerEmail, `Alert: ${triggerEvent}`, JSON.stringify(payloadData));
+      const bodyText = typeof payloadData === 'object'
+        ? Object.entries(payloadData).map(([k, v]) => `${k}: ${v}`).join('\n')
+        : String(payloadData);
+      await sendEmailAlert(payloadInfo.to || ownerEmail, `Alert: ${triggerEvent}`, bodyText);
     } else if (auto.actionType === 'webhook_post') {
       if (payloadInfo.url) {
         await dispatchWebhook(payloadInfo.url, { trigger: triggerEvent, data: payloadData });

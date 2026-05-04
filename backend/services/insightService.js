@@ -199,7 +199,7 @@ async function generateInsightsViaLLM(context) {
       }
     ]`;
 
-    const userPrompt = `\nBusiness: ${context.business.name} (${context.business.type})\nLocation: ${context.business.location}\nGoals: ${context.business.goals.join(', ') || 'General growth'}\n\nCurrent Metrics:\n- Revenue: ${context.metrics.revenue.value} (${context.metrics.revenue.delta > 0 ? '+' : ''}${context.metrics.revenue.delta}%)\n- Orders: ${context.metrics.orders.value} (${context.metrics.orders.delta > 0 ? '+' : ''}${context.metrics.orders.delta}%)\n- Conversion: ${context.metrics.conversion.value}%\n- Inventory Health: ${context.metrics.inventory.value}%\n- Customer Retention: ${context.metrics.retention.value}%\n- Review Sentiment: ${context.metrics.sentiment.value}/5\n\nContext:\n- Recent orders: ${context.patterns.recentOrderCount}\n- Avg order value: ₹${context.patterns.avgOrderValue}\n- Low stock items: ${context.patterns.lowStockItemsCount}\n- Negative reviews (recent): ${context.patterns.negativeReviewsCount}\n- Repeat customers: ${context.patterns.repeatCustomerCount}/${context.patterns.totalCustomers}\n\nTime: ${context.timeContext.isDayOfWeek}, ${getSeason(context.timeContext.currentMonth)}, ${context.timeContext.currentHour}:00\nEnvironmental: ${context.environmental.temp}, ${context.environmental.condition} (${context.environmental.impact})\n\nGenerate insights explaining why these metrics are at these levels, aligned with goals. Encourage taking advantage of favorable weather or mitigating negative weather impacts where applicable. Prioritize actions for ${context.business.goals.join(', ') || 'growth'}.`;
+    const userPrompt = `\nBusiness: ${context.business.name} (${context.business.type})\nLocation: ${context.business.location}\nGoals: ${context.business.goals.join(', ') || 'General growth'}\n\nCurrent Metrics:\n- Revenue: ${context.metrics.revenue?.value ?? 0} (${(context.metrics.revenue?.delta ?? 0) > 0 ? '+' : ''}${context.metrics.revenue?.delta ?? 0}%)\n- Orders: ${context.metrics.orders?.value ?? 0} (${(context.metrics.orders?.delta ?? 0) > 0 ? '+' : ''}${context.metrics.orders?.delta ?? 0}%)\n- Conversion: ${context.metrics.conversion?.value ?? 0}%\n- Inventory Health: ${context.metrics.inventory?.value ?? 0}%\n- Customer Retention: ${context.metrics.retention?.value ?? 0}%\n- Review Sentiment: ${context.metrics.sentiment?.value ?? 0}/5\n\nContext:\n- Recent orders: ${context.patterns.recentOrderCount}\n- Avg order value: ₹${context.patterns.avgOrderValue}\n- Low stock items: ${context.patterns.lowStockItemsCount}\n- Negative reviews (recent): ${context.patterns.negativeReviewsCount}\n- Repeat customers: ${context.patterns.repeatCustomerCount}/${context.patterns.totalCustomers}\n\nTime: ${context.timeContext.isDayOfWeek}, ${getSeason(context.timeContext.currentMonth)}, ${context.timeContext.currentHour}:00\nEnvironmental: ${context.environmental.temp}, ${context.environmental.condition} (${context.environmental.impact})\n\nGenerate insights explaining why these metrics are at these levels, aligned with goals. Encourage taking advantage of favorable weather or mitigating negative weather impacts where applicable. Prioritize actions for ${context.business.goals.join(', ') || 'growth'}.`;
 
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -276,20 +276,20 @@ function generateFallbackInsights(context) {
   const { metrics, patterns, timeContext, recentIssues } = context;
 
 // Insight 1: Revenue trend
-   if (Math.abs(metrics.revenue.delta) >= 5) {
+   if (Math.abs(metrics.revenue?.delta ?? 0) >= 5) {
      insights.push({
-       title: metrics.revenue.delta > 0 ? 'Revenue Growing Strong' : 'Revenue Decline Detected',
-       body: metrics.revenue.delta > 0
-         ? `Your revenue increased by ${metrics.revenue.delta}% this month. Strong customer demand is driving sales.`
-         : `Revenue dropped ${Math.abs(metrics.revenue.delta)}% this month. Consider seasonal factors or reduced marketing reach.`,
-       severity: metrics.revenue.delta > 0 ? 'positive' : 'negative',
-       evidence: metrics.revenue.delta > 0 ? ['revenue_surge', 'growth_trend'] : ['revenue_drop', 'low_orders'],
+       title: (metrics.revenue?.delta ?? 0) > 0 ? 'Revenue Growing Strong' : 'Revenue Decline Detected',
+       body: (metrics.revenue?.delta ?? 0) > 0
+         ? `Your revenue increased by ${metrics.revenue?.delta}% this month. Strong customer demand is driving sales.`
+         : `Revenue dropped ${Math.abs(metrics.revenue?.delta ?? 0)}% this month. Consider seasonal factors or reduced marketing reach.`,
+       severity: (metrics.revenue?.delta ?? 0) > 0 ? 'positive' : 'negative',
+       evidence: (metrics.revenue?.delta ?? 0) > 0 ? ['revenue_surge', 'growth_trend'] : ['revenue_drop', 'low_orders'],
      });
    } else {
      // Fix #72: Always show a revenue insight for normal days (within ±15%)
      insights.push({
        title: 'Revenue Stable',
-       body: `Your revenue is stable with ${metrics.revenue.delta}% change. Business conditions are consistent with recent trends.`,
+       body: `Your revenue is stable with ${metrics.revenue?.delta ?? 0}% change. Business conditions are consistent with recent trends.`,
        severity: 'info',
        evidence: ['stable_revenue', 'normal_performance'],
      });
@@ -323,10 +323,10 @@ function generateFallbackInsights(context) {
   }
 
   // Insight 4: Conversion
-  if (metrics.conversion.value < 1) {
+  if ((metrics.conversion?.value ?? 100) < 1) {
     insights.push({
       title: 'Conversion Rate Below Average',
-      body: `Only ${metrics.conversion.value}% of visitors convert to customers. Consider improving marketing message or checkout process.`,
+      body: `Only ${metrics.conversion?.value ?? 0}% of visitors convert to customers. Consider improving marketing message or checkout process.`,
       severity: 'info',
       evidence: ['low_conversion', 'traffic_optimization_needed'],
     });

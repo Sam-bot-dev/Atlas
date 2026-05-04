@@ -186,7 +186,7 @@ const seed = async () => {
       name: 'Skyline Interiors',
       type: 'Service Business',
       category: 'Real Estate',
-      location: 'Gurugram, Haryana',
+      location: 'Manali, Himachal Pradesh',
       initials: 'SI',
       color: '#15803d',
       owner: 'Neha',
@@ -295,8 +295,9 @@ const seed = async () => {
 
 seed()
   .catch((e) => {
-    console.error(e);
-    process.exit(1);
+    console.error('Seed failed (non-fatal):', e.message);
+    // Don't exit — a seed failure should not prevent the server from starting.
+    // The demo user may already exist from a previous deploy.
   })
   .finally(async () => {
     await prisma.$disconnect();

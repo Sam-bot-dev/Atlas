@@ -60,6 +60,11 @@ app.use((req, res, next) => {
 
 console.log(`✓ JWT_SECRET configured (${process.env.JWT_SECRET?.length ?? 0} chars)`);
 
+// Warn if Firebase isn't configured — Google login will be unavailable but server stays up
+if (isProd && (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL)) {
+  console.warn('[startup] Firebase env vars missing — Google/Firebase auth will return 503');
+}
+
 // Crash guards — prevent one bad request from killing the server
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
@@ -178,8 +183,23 @@ const waitForDb = async () => {
 
 const server = app.listen(port, () => {
   console.log(`Atlas backend running on port ${port} [${isProd ? 'production' : 'development'}]`);
-  // Wait for DB to be ready, then recover queued jobs
-  waitForDb().then(() => {
+  // Wait for DB to be ready, then seed + recover queued jobs
+  waitForDb().then(async () => {
+    // Run seed in production to ensure demo user + businesses exist.
+    // Spawned as a child process so seed's prisma.$disconnect() doesn't
+    // kill the shared connection used by the main server.
+    if (isProd) {
+      const { spawn } = require('child_process');
+      const seedPath = require('path').join(__dirname, 'prisma', 'seed.js');
+      const child = spawn(process.execPath, [seedPath], {
+        stdio: 'inherit',
+        env: process.env,
+      });
+      child.on('error', (err) => console.warn('[startup] Seed spawn error (non-fatal):', err.message));
+      child.on('exit', (code) => {
+        if (code !== 0) console.warn(`[startup] Seed exited with code ${code} (non-fatal)`);
+      });
+    }
     recoverQueuedUploadJobs().catch((err) => {
       console.error('[startup] Upload job recovery failed:', err.message);
     });

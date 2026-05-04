@@ -173,9 +173,9 @@ export const Analytics = ({ business: initialBusiness }) => {
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Customer growth</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
-            {loading ? <SkeletonLine width={80} height={22}/> : (customerGrowth.at(-1)?.v || 0).toLocaleString('en-IN')}
+            {loading ? <SkeletonLine width={80} height={22}/> : ((customerGrowth || []).at(-1)?.v || 0).toLocaleString('en-IN')}
           </div>
-          {loading ? <SkeletonChart /> : <LineChart data={customerGrowth} xKey={customerGrowth[0]?.d !== undefined ? 'd' : 'm'}/>}
+          {loading ? <SkeletonChart /> : <LineChart data={customerGrowth || []} xKey={(customerGrowth || [])[0]?.d !== undefined ? 'd' : 'm'}/>}
         </div>
       </div>
 
@@ -184,7 +184,7 @@ export const Analytics = ({ business: initialBusiness }) => {
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 4 }}>Orders by day</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, marginBottom: 12 }}>
-            {loading ? <SkeletonLine width={100} height={22}/> : `${ordersSeries.reduce((s, d) => s + (d.v || 0), 0).toLocaleString('en-IN')} orders`}
+            {loading ? <SkeletonLine width={100} height={22}/> : `${(ordersSeries || []).reduce((s, d) => s + (d.v || 0), 0).toLocaleString('en-IN')} orders`}
           </div>
           {loading ? <SkeletonChart /> : <BarChart data={ordersSeries} xKey={ordersSeries[0]?.d !== undefined ? 'd' : 'm'}/>}
         </div>

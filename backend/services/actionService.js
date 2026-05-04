@@ -127,10 +127,10 @@ function generateStandardActions(context) {
   }
 
   // 3. Low Conversion → Optimize
-  if (metrics.conversion.value < 2) {
+  if ((metrics.conversion?.value ?? 100) < 2) {
     actions.push({
       title: 'Improve Conversion Rate',
-      body: `Only ${metrics.conversion.value}% of visitors convert. Review website/app usability, simplify checkout, and add urgency (limited-time offers).`,
+      body: `Only ${metrics.conversion?.value ?? 0}% of visitors convert. Review website/app usability, simplify checkout, and add urgency (limited-time offers).`,
       impact: 'High',
       effort: 'High',
       confidence: 'Medium',
@@ -140,10 +140,10 @@ function generateStandardActions(context) {
   }
 
   // 4. Low Retention → Engage Repeat Customers
-  if (metrics.retention.value < 30) {
+  if ((metrics.retention?.value ?? 100) < 30) {
     actions.push({
       title: 'Launch Loyalty Program',
-      body: `Only ${metrics.retention.value}% of customers repeat. Create a loyalty program with rewards for repeat purchases to boost retention.`,
+      body: `Only ${metrics.retention?.value ?? 0}% of customers repeat. Create a loyalty program with rewards for repeat purchases to boost retention.`,
       impact: 'High',
       effort: 'Medium',
       confidence: 'High',
@@ -153,10 +153,10 @@ function generateStandardActions(context) {
   }
 
   // 5. Revenue Declining → Investigate & Act
-  if (metrics.revenue.delta < -10) {
+  if ((metrics.revenue?.delta ?? 0) < -10) {
     actions.push({
       title: 'Investigate Revenue Decline',
-      body: `Revenue dropped ${Math.abs(metrics.revenue.delta)}%. Analyze top-selling items, customer acquisition changes, and competitive activity. Consider promotional campaigns.`,
+      body: `Revenue dropped ${Math.abs(metrics.revenue?.delta ?? 0)}%. Analyze top-selling items, customer acquisition changes, and competitive activity. Consider promotional campaigns.`,
       impact: 'High',
       effort: 'Medium',
       confidence: 'Medium',
@@ -166,10 +166,10 @@ function generateStandardActions(context) {
   }
 
   // 6. Low Rating → Quality Improvement
-  if (metrics.sentiment.value < 3) {
+  if ((metrics.sentiment?.value ?? 5) < 3) {
     actions.push({
       title: 'Quality & Service Improvement Plan',
-      body: `Customer rating is ${metrics.sentiment.value}/5. Focus on service quality, delivery speed, and product consistency. Train staff and gather detailed feedback.`,
+      body: `Customer rating is ${metrics.sentiment?.value ?? 0}/5. Focus on service quality, delivery speed, and product consistency. Train staff and gather detailed feedback.`,
       impact: 'High',
       effort: 'High',
       confidence: 'High',
@@ -217,7 +217,7 @@ function generateAdvancedActions(context) {
   const hour = now.getHours();
   const isOffPeakHour = hour < 9 || hour > 19;
 
-  if (isOffPeakHour && metrics.conversion.value < 2) {
+  if (isOffPeakHour && (metrics.conversion?.value ?? 100) < 2) {
     actions.push({
       title: 'Off-Peak Hour Promotions',
       body: `Launch special discounts during slow hours (${hour}:00) to attract customers. Offer "Happy Hour" deals to boost traffic.`,

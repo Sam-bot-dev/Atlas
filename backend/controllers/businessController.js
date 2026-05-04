@@ -5,6 +5,19 @@ const parseJsonField = (value, fallback) => {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 };
 
+// Parse all JSON array/object fields on a business record before sending to frontend.
+// These fields are stored as JSON strings in the DB but the frontend expects parsed values.
+const parseBizJsonFields = (biz) => ({
+  ...biz,
+  goals:         parseJsonField(biz.goals, []),
+  peakHours:     parseJsonField(biz.peakHours, []),
+  revenueSeries: parseJsonField(biz.revenueSeries, []),
+  ordersSeries:  parseJsonField(biz.ordersSeries, []),
+  customerGrowth:parseJsonField(biz.customerGrowth, []),
+  topMovers:     parseJsonField(biz.topMovers, []),
+  spendingMix:   parseJsonField(biz.spendingMix, []),
+});
+
 // @desc    Get businesses for user (supports ?demo=true filter)
 // @route   GET /api/v1/businesses
 // @access  Private
@@ -28,8 +41,7 @@ const getBusinesses = asyncHandler(async (req, res) => {
 
   // Flatten JSON fields for frontend compatibility
   const flattened = businesses.map(biz => ({
-    ...biz,
-    goals: parseJsonField(biz.goals, []),
+    ...parseBizJsonFields(biz),
     metrics: biz.metrics.reduce((acc, m) => ({ ...acc, [m.key]: m }), {}),
     insights: biz.insights,
     actions: biz.actions,
@@ -76,7 +88,7 @@ const createBusiness = asyncHandler(async (req, res) => {
   });
 
   const flattened = {
-    ...business,
+    ...parseBizJsonFields(business),
     metrics: business.metrics.reduce((acc, m) => ({ ...acc, [m.key]: m }), {}),
     insights: business.insights || [],
     actions: business.actions || [],
@@ -107,7 +119,7 @@ const getBusiness = asyncHandler(async (req, res) => {
   }
 
   const flattened = {
-    ...business,
+    ...parseBizJsonFields(business),
     metrics: business.metrics.reduce((acc, m) => ({ ...acc, [m.key]: m }), {}),
     insights: business.insights || [],
     actions: business.actions || [],
@@ -163,7 +175,7 @@ const updateBusiness = asyncHandler(async (req, res) => {
   }
 
   const flattened = {
-    ...updated,
+    ...parseBizJsonFields(updated),
     metrics: updated.metrics.reduce((acc, m) => ({ ...acc, [m.key]: m }), {}),
     insights: updated.insights || [],
     actions: updated.actions || [],

@@ -5,7 +5,7 @@ const { prisma } = require('../lib/prisma');
  * Handles user-facing tasks (auto-generated or manual)
  */
 
-async function createTask({ businessId, title, description, dueDate, actionId }) {
+async function createTask({ businessId, title, description, dueDate, actionId = null }) {
   return prisma.task.create({
     data: {
       businessId,

@@ -6,7 +6,7 @@
  * real backend data).
  */
 
-const PERIOD_DAYS = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+const PERIOD_DAYS = { '7D': 7, '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
 
 /**
  * Scale demo business data to the selected period.
@@ -59,6 +59,7 @@ export function buildDemoData(business, period) {
 
   // --- Series ---
   const full = business.revenueSeries || [];
+  const custFull = business.customerGrowth || [];
   let sliceCount;
   if (days <= 7)       sliceCount = Math.min(2, full.length);
   else if (days <= 30) sliceCount = Math.min(3, full.length);
@@ -67,6 +68,7 @@ export function buildDemoData(business, period) {
   else                 sliceCount = full.length;
 
   const series = full.slice(-Math.max(1, sliceCount));
+  const customerSeries = custFull.slice(-Math.max(1, sliceCount));
 
-  return { series, metrics };
+  return { series, customerSeries, metrics };
 }

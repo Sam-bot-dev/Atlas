@@ -186,9 +186,12 @@ export const Automations = ({ business }) => {
         setLastRun(new Date());
         setShowLog(true);
       } else {
-        // For real businesses, toggle to active then run all (simplest path)
-        await AtlasAPI.automations.run(business.id);
+        // Backend runs all active automations — filter the returned log to this one
+        const res = await AtlasAPI.automations.run(business.id);
+        const filtered = (res.log || []).filter(e => e.automationId === auto.id);
+        setLogs(prev => [...filtered, ...prev].slice(0, 50));
         setLastRun(new Date());
+        setShowLog(true);
       }
     } catch (err) {
       logError('Run single automation', err);
