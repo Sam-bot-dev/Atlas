@@ -3,7 +3,7 @@ const path = require('path');
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
 const { detectFileType } = require('../lib/ingestion/detect');
-const { enqueueUploadJob } = require('../lib/ingestion/worker');
+const { enqueueUploadJob, confirmUploadJob } = require('../lib/ingestion/worker');
 
 const ensureBusiness = async (req) => {
   const business = await prisma.business.findFirst({
@@ -119,7 +119,36 @@ const listUploads = asyncHandler(async (req, res) => {
   res.json(jobs.map(serializeJob));
 });
 
-const deleteUpload = asyncHandler(async (req, res) => {
+const confirmUpload = asyncHandler(async (req, res) => {
+  await ensureBusiness(req);
+
+  const job = await prisma.uploadJob.findFirst({
+    where: { id: req.params.uploadId, businessId: req.params.bizId },
+  });
+
+  if (!job) { res.status(404); throw new Error('Upload not found'); }
+  if (job.status !== 'pending_review') {
+    res.status(400); throw new Error('This upload is not awaiting review');
+  }
+
+  const counts = await confirmUploadJob(job.id);
+  res.json({ id: job.id, status: 'complete', counts });
+});
+
+const rejectUpload = asyncHandler(async (req, res) => {
+  await ensureBusiness(req);
+
+  const job = await prisma.uploadJob.findFirst({
+    where: { id: req.params.uploadId, businessId: req.params.bizId },
+  });
+
+  if (!job) { res.status(404); throw new Error('Upload not found'); }
+
+  await prisma.dataSource.update({ where: { id: job.sourceId }, data: { status: 'rejected' } });
+  await prisma.uploadJob.update({ where: { id: job.id }, data: { status: 'rejected', stage: 'rejected' } });
+
+  res.json({ id: job.id, status: 'rejected' });
+});
   await ensureBusiness(req);
 
   const job = await prisma.uploadJob.findFirst({
@@ -145,4 +174,6 @@ module.exports = {
   getUpload,
   listUploads,
   deleteUpload,
+  confirmUpload,
+  rejectUpload,
 };

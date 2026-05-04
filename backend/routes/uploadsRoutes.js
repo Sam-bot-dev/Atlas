@@ -7,6 +7,8 @@ const {
   getUpload,
   listUploads,
   deleteUpload,
+  confirmUpload,
+  rejectUpload,
 } = require('../controllers/uploadsController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -51,19 +53,8 @@ const upload = multer({
 });
 
 router.route('/').get(protect, listUploads).post(protect, upload.single('file'), createUpload);
-router.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'File too large. Max 12MB.' });
-    }
-  } else if (error) {
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    return res.status(400).json({ message: error.message });
-  }
-  next(error);
-});
 router.route('/:uploadId').get(protect, getUpload).delete(protect, deleteUpload);
+router.post('/:uploadId/confirm', protect, confirmUpload);
+router.post('/:uploadId/reject', protect, rejectUpload);
 
 module.exports = router;

@@ -320,7 +320,7 @@ export const DataSources = ({ business }) => {
   React.useEffect(() => {
     refreshUploads();
     const interval = setInterval(() => {
-      if (uploads.some(u => u.status === 'processing' || u.status === 'queued')) refreshUploads();
+      if (uploads.some(u => u.status === 'processing' || u.status === 'queued' || u.status === 'pending_review')) refreshUploads();
     }, 3000);
     return () => clearInterval(interval);
   }, [refreshUploads, uploads]);
@@ -556,49 +556,127 @@ export const DataSources = ({ business }) => {
         </div>
       )}
 
-      {/* Upload history */}
+      {/* Upload history — with AI review cards for pending_review items */}
       {uploads.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Recent uploads</div>
-          <div className="card">
-            {uploads.map((u, i) => (
-              <div key={u.id} style={{ padding: '12px 16px', borderBottom: i === uploads.length - 1 ? 'none' : '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <Icon name={u.mimeType?.includes('image') ? 'image' : 'file'} size={14} color="var(--ink-3)" style={{ marginTop: 2 }}/>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{u.originalName || u.fileName}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', marginBottom: u.counts ? 6 : 0 }}>
-                    {u.stage} · {new Date(u.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  {u.counts && Object.keys(u.counts).length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {Object.entries(u.counts).map(([k, v]) => v > 0 && (
-                        <span key={k} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: 'var(--bg-subtle)', color: 'var(--ink-3)', fontWeight: 500 }}>
-                          {v} {k}
-                        </span>
-                      ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {uploads.map((u) => {
+              const extracted = (() => { try { return JSON.parse(u.extracted ? JSON.stringify(u.extracted) : '{}'); } catch { return {}; } })();
+              const summary = extracted.summary || null;
+              const isPendingReview = u.status === 'pending_review';
+
+              if (isPendingReview && summary) {
+                return (
+                  <div key={u.id} className="card fade-in" style={{ padding: 20, borderColor: '#f59e0b', borderWidth: 1.5 }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                      <span style={{ width: 28, height: 28, borderRadius: 6, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon name="sparkles" size={14} color="#d97706"/>
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{u.originalName || u.fileName}</div>
+                        <div style={{ fontSize: 11, color: '#d97706', fontWeight: 500 }}>Atlas has read this — review before adding to analytics</div>
+                      </div>
                     </div>
-                  )}
-                  {u.preview?.length > 0 && (
-                    <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4 }}>{u.preview.join(' · ')}</div>
-                  )}
+
+                    {/* AI summary */}
+                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 8, padding: '12px 14px', marginBottom: 14, fontSize: 13, lineHeight: 1.7, color: 'var(--ink-2)' }}>
+                      {summary.useful ? (
+                        <>
+                          {summary.lines.map((line, i) => <div key={i}>{line}</div>)}
+                        </>
+                      ) : (
+                        <div style={{ color: 'var(--ink-3)' }}>
+                          {summary.lines[0] || 'No structured data found in this document.'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Impact preview */}
+                    {summary.useful && summary.impact?.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>If you confirm, Atlas will:</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {summary.impact.map((item, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)' }}>
+                              <Icon name="arrow-right" size={11} color="var(--positive)"/>
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {summary.useful ? (
+                        <>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            style={{ flex: 1, justifyContent: 'center' }}
+                            onClick={async () => {
+                              try {
+                                await AtlasAPI.uploads.confirm(business.id, u.id);
+                                refreshUploads();
+                              } catch (e) { alert('Failed: ' + e.message); }
+                            }}
+                          >
+                            <Icon name="check" size={12}/> Yes, add to analytics
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={async () => {
+                              await AtlasAPI.uploads.reject(business.id, u.id);
+                              refreshUploads();
+                            }}
+                          >
+                            Discard
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={async () => {
+                            await AtlasAPI.uploads.reject(business.id, u.id);
+                            refreshUploads();
+                          }}
+                        >
+                          <Icon name="x" size={12}/> Dismiss
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Normal upload row
+              return (
+                <div key={u.id} className="card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <Icon name={u.mimeType?.includes('image') ? 'image' : 'file'} size={14} color="var(--ink-3)" style={{ marginTop: 2 }}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{u.originalName || u.fileName}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+                      {u.stage} · {new Date(u.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: u.status === 'failed' ? 'var(--negative)' : u.status === 'complete' ? 'var(--positive)' : u.status === 'rejected' ? 'var(--ink-4)' : 'var(--warning)' }}>
+                      {u.status === 'complete' ? '● Done' : u.status === 'failed' ? '● Failed' : u.status === 'rejected' ? '● Discarded' : '○ Processing'}
+                    </span>
+                    <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={() => {
+                      if (isDemo) {
+                        setUploads(prev => prev.filter(x => x.id !== u.id));
+                      } else {
+                        AtlasAPI.uploads.delete(business.id, u.id).then(refreshUploads);
+                      }
+                    }}>
+                      <Icon name="x" size={12}/>
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: u.status === 'failed' ? 'var(--negative)' : u.status === 'complete' ? 'var(--positive)' : 'var(--warning)' }}>
-                    {u.status === 'complete' ? '● Done' : u.status === 'failed' ? '● Failed' : '○ Processing'}
-                  </span>
-                  <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={() => {
-                    if (isDemo) {
-                      setUploads(prev => prev.filter(x => x.id !== u.id));
-                      if (extractResult?.fileName === (u.originalName || u.fileName)) setExtractResult(null);
-                    } else {
-                      AtlasAPI.uploads.delete(business.id, u.id).then(refreshUploads);
-                    }
-                  }}>
-                    <Icon name="x" size={12}/>
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

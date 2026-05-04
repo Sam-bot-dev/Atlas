@@ -201,6 +201,8 @@ const AtlasAPI = {
     status: (bizId, uploadId) => get(`/businesses/${bizId}/uploads/${uploadId}`),
     list: (bizId) => get(`/businesses/${bizId}/uploads`),
     delete: (bizId, uploadId) => del(`/businesses/${bizId}/uploads/${uploadId}`),
+    confirm: (bizId, uploadId) => post(`/businesses/${bizId}/uploads/${uploadId}/confirm`, {}),
+    reject: (bizId, uploadId) => post(`/businesses/${bizId}/uploads/${uploadId}/reject`, {}),
   },
   metrics: {
     summary: (bizId, period) => get(`/businesses/${bizId}/metrics`, period ? { period } : undefined),

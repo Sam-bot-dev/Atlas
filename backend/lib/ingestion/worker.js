@@ -5,10 +5,59 @@ const { normalizeExtraction } = require('./normalize');
 let queue = Promise.resolve();
 
 const setJob = (id, data) =>
-  prisma.uploadJob.update({
-    where: { id },
-    data,
-  });
+  prisma.uploadJob.update({ where: { id }, data });
+
+// Build a plain-English summary of what the AI extracted from the document
+const buildAiSummary = (data, rawText, fileName) => {
+  const counts = {
+    orders: (data.orders || []).length,
+    products: (data.products || []).length,
+    customers: (data.customers || []).length,
+    reviews: (data.reviews || []).length,
+    inventory: (data.inventory || []).length,
+    traffic: (data.traffic || []).length,
+  };
+  const total = Object.values(counts).reduce((s, v) => s + v, 0);
+
+  const lines = [];
+
+  if (total === 0) {
+    lines.push("No structured business data was found in this document.");
+    if (rawText && rawText.length > 20) {
+      lines.push(`The document contains text but it doesn't match any known data format (orders, inventory, reviews, etc.).`);
+    }
+    return { useful: false, lines, counts, impact: [] };
+  }
+
+  lines.push(`Atlas read "${fileName}" and found the following:`);
+
+  if (counts.orders > 0) {
+    const orders = data.orders;
+    const total_rev = orders.reduce((s, o) => s + (o.total || 0), 0);
+    lines.push(`• ${counts.orders} orders${total_rev > 0 ? ` totalling ₹${total_rev.toLocaleString('en-IN')}` : ''}`);
+  }
+  if (counts.products > 0) lines.push(`• ${counts.products} products/SKUs`);
+  if (counts.customers > 0) lines.push(`• ${counts.customers} customer records`);
+  if (counts.reviews > 0) {
+    const avg = data.reviews.reduce((s, r) => s + (r.rating || 0), 0) / counts.reviews;
+    lines.push(`• ${counts.reviews} reviews (avg rating: ${avg.toFixed(1)}/5)`);
+  }
+  if (counts.inventory > 0) {
+    const low = (data.inventory || []).filter(i => i.status === 'low' || i.quantityOnHand <= i.reorderPoint).length;
+    lines.push(`• ${counts.inventory} inventory items${low > 0 ? ` (${low} below reorder point)` : ''}`);
+  }
+  if (counts.traffic > 0) lines.push(`• ${counts.traffic} traffic/visitor data points`);
+
+  // What will change in analytics
+  const impact = [];
+  if (counts.orders > 0) impact.push('Revenue metrics will be recalculated');
+  if (counts.customers > 0) impact.push('Customer retention rate will update');
+  if (counts.inventory > 0) impact.push('Inventory health score will update');
+  if (counts.reviews > 0) impact.push('Review sentiment score will update');
+  if (counts.orders > 0 || counts.customers > 0) impact.push('New insights and actions will be generated');
+
+  return { useful: true, lines, counts, impact };
+};
 
 const runUploadJob = async (jobId) => {
   let job = await prisma.uploadJob.findUnique({
@@ -43,37 +92,25 @@ const runUploadJob = async (jobId) => {
     business: job.business,
   });
 
+  // Build a human-readable summary of what the AI understood
+  const data = structured.data;
+  const summary = buildAiSummary(data, raw.rawText, job.originalName);
+
+  // Store extracted data and pause for user review — don't write to DB yet
   await setJob(jobId, {
     extractedJson: JSON.stringify({
       provider: structured.provider,
-      ...structured.data,
+      summary,
+      ...data,
     }),
-    stage: 'normalize',
-  });
-
-  const counts = await normalizeExtraction({
-    businessId: job.businessId,
-    sourceId: job.sourceId,
-    extraction: structured.data,
+    normalizedJson: JSON.stringify({ counts: {}, pendingReview: true }),
+    status: 'pending_review',
+    stage: 'pending_review',
   });
 
   await prisma.dataSource.update({
     where: { id: job.sourceId },
-    data: {
-      status: 'complete',
-      meta: JSON.stringify({
-        uploadJobId: jobId,
-        detectedType: job.detectedType,
-        provider: structured.provider,
-        counts,
-      }),
-    },
-  });
-
-  await setJob(jobId, {
-    status: 'complete',
-    stage: 'complete',
-    normalizedJson: JSON.stringify({ counts }),
+    data: { status: 'pending_review' },
   });
 };
 
@@ -133,4 +170,54 @@ const recoverQueuedUploadJobs = async () => {
   }
 };
 
-module.exports = { enqueueUploadJob, recoverQueuedUploadJobs };
+// Apply the extracted data to the DB after user confirms
+const confirmUploadJob = async (jobId) => {
+  const job = await prisma.uploadJob.findUnique({
+    where: { id: jobId },
+    include: { business: true },
+  });
+
+  if (!job) throw new Error('Upload job not found');
+  if (job.status !== 'pending_review') throw new Error('Job is not awaiting review');
+
+  await setJob(jobId, { status: 'processing', stage: 'normalize' });
+
+  let extracted;
+  try {
+    extracted = JSON.parse(job.extractedJson);
+  } catch {
+    throw new Error('Extracted data is corrupted');
+  }
+
+  // Remove summary metadata before normalizing
+  const { provider, summary, ...data } = extracted;
+
+  const counts = await normalizeExtraction({
+    businessId: job.businessId,
+    sourceId: job.sourceId,
+    extraction: data,
+  });
+
+  await prisma.dataSource.update({
+    where: { id: job.sourceId },
+    data: {
+      status: 'complete',
+      meta: JSON.stringify({
+        uploadJobId: jobId,
+        detectedType: job.detectedType,
+        provider: provider || 'unknown',
+        counts,
+      }),
+    },
+  });
+
+  await setJob(jobId, {
+    status: 'complete',
+    stage: 'complete',
+    normalizedJson: JSON.stringify({ counts }),
+  });
+
+  return counts;
+};
+
+module.exports = { enqueueUploadJob, recoverQueuedUploadJobs, confirmUploadJob };
