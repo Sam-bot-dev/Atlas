@@ -10,6 +10,99 @@ const TABS = [
   { id: 'inventory', label: 'Inventory', icon: 'archive'      },
 ];
 
+// ── AI Search Modal ───────────────────────────────────────────────────────────
+const AiSearchModal = ({ business, records, onClose }) => {
+  const [query, setQuery] = React.useState('');
+  const [answer, setAnswer] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const inputRef = React.useRef();
+
+  React.useEffect(() => {
+    inputRef.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const ask = async (q) => {
+    if (!q.trim() || loading) return;
+    setLoading(true);
+    setAnswer(null);
+    try {
+      // Build a compact data summary to send as context
+      const summary = {
+        orders: records.orders.slice(0, 50).map(o => ({ date: o.orderDate, customer: o.customerName, product: o.productName, total: o.total, channel: o.channel })),
+        customers: records.customers.slice(0, 50).map(c => ({ name: c.name, orders: c.ordersCount, spend: c.totalSpend, segment: c.segment })),
+        products: records.products.slice(0, 30).map(p => ({ name: p.name, sold: p.unitsSold, revenue: p.revenue, stock: p.quantityOnHand })),
+        reviews: records.reviews.slice(0, 30).map(r => ({ rating: r.rating, sentiment: r.sentiment, body: r.body?.slice(0, 100) })),
+        inventory: records.inventory.slice(0, 30).map(i => ({ item: i.itemName, qty: i.quantityOnHand, reorder: i.reorderPoint, status: i.status })),
+      };
+      const res = await AtlasAPI.insights.askWithContext(q, { ...business, _recordsSummary: summary });
+      setAnswer(res.answer);
+    } catch (e) {
+      setAnswer('Could not reach AI. Check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const suggestions = [
+    'Who are my top 3 customers by spend?',
+    'Which products are running low on stock?',
+    'What was my best selling day?',
+    'Show me all negative reviews',
+    'Which channel brings the most orders?',
+  ];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '12vh' }} onClick={onClose}>
+      <div className="card fade-in" style={{ width: 560, padding: 0, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        {/* Input */}
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="sparkles" size={16} color="var(--ink-1)"/>
+          <input
+            ref={inputRef}
+            className="input"
+            style={{ border: 'none', padding: 0, fontSize: 14, flex: 1 }}
+            placeholder="Ask anything about your records…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && ask(query)}
+          />
+          {loading
+            ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--ink-1)', animation: 'spin 600ms linear infinite', flexShrink: 0 }}/>
+            : <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>esc</span>
+          }
+        </div>
+
+        {/* Answer */}
+        {answer && (
+          <div className="fade-in" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6, background: 'var(--bg-subtle)', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+            {answer}
+          </div>
+        )}
+
+        {/* Suggestions */}
+        <div style={{ padding: 8 }}>
+          <div style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suggested</div>
+          {suggestions.map((s, i) => (
+            <div
+              key={i}
+              style={{ padding: '8px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onClick={() => { setQuery(s); ask(s); }}
+            >
+              <Icon name="arrow-right" size={12} color="var(--ink-4)"/>
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const EditableCell = ({ value, onSave, type = 'text' }) => {
   const [editing, setEditing] = React.useState(false);
   const [val, setVal] = React.useState(value ?? '');
@@ -59,6 +152,7 @@ export const Records = ({ business }) => {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(null);
   const [search, setSearch] = React.useState('');
+  const [showAiSearch, setShowAiSearch] = React.useState(false);
 
   const isDemo = ['baker','retail','pharmacy','cafe','trade','service'].includes(business?.id) || business?.isDemo;
 
@@ -131,18 +225,24 @@ export const Records = ({ business }) => {
         title="Records"
         subtitle="Everything Atlas knows about your business. Edit any cell — metrics update automatically."
         action={
-          <div style={{ position: 'relative' }}>
-            <Icon name="search" size={13} color="var(--ink-4)" style={{ position: 'absolute', left: 10, top: 9 }}/>
-            <input
-              className="input"
-              style={{ paddingLeft: 30, fontSize: 12, width: 200 }}
-              placeholder="Search records…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm" onClick={() => setShowAiSearch(true)}>
+              <Icon name="sparkles" size={13}/> Ask AI
+            </button>
+            <div style={{ position: 'relative' }}>
+              <Icon name="search" size={13} color="var(--ink-4)" style={{ position: 'absolute', left: 10, top: 9 }}/>
+              <input
+                className="input"
+                style={{ paddingLeft: 30, fontSize: 12, width: 200 }}
+                placeholder="Search records…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         }
       />
+      {showAiSearch && <AiSearchModal business={business} records={records} onClose={() => setShowAiSearch(false)}/>}
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 0 }}>
