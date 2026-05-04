@@ -84,7 +84,7 @@ const AddTaskModal = ({ onClose, onAdd }) => {
       ref={backdropRef}
       onClick={handleBackdrop}
       style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
+        position: 'fixed', inset: 0, zIndex: 2000,
         background: 'rgba(0,0,0,0.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '24px 16px',

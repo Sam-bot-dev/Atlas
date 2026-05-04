@@ -59,6 +59,7 @@ export const ChatPanel = ({ business, onClose }) => {
     buildFullContext(business).then(setFullContext);
   }, [bizKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync messages when switching to a different business
   React.useEffect(() => {
     if (chatHistory[bizKey]) {
       setMessages(chatHistory[bizKey]);
@@ -71,7 +72,7 @@ export const ChatPanel = ({ business, onClose }) => {
       setMessages(welcome);
       chatHistory[bizKey] = welcome;
     }
-  }, [bizKey, business?.name]);
+  }, [bizKey]); // only re-run when the business ID changes, not on name updates
 
   React.useEffect(() => { chatHistory[bizKey] = messages; }, [messages, bizKey]);
 

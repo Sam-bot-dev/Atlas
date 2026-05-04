@@ -316,7 +316,7 @@ export const TopBar = ({ title, business, user, onExit = null, onOpenChat }) => 
           </button>
           {notifOpen && (
             <div
-              style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 280, maxWidth: 320, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
+              style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 280, maxWidth: 320, boxShadow: 'var(--shadow-lg)', zIndex: 1000 }}
               onMouseLeave={() => setNotifOpen(false)}
             >
               <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Notifications</div>
@@ -349,7 +349,7 @@ export const TopBar = ({ title, business, user, onExit = null, onOpenChat }) => 
 
       {open && (
         <div
-          style={{ position: 'absolute', top: 56, right: 24, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
+          style={{ position: 'absolute', top: 56, right: 24, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, boxShadow: 'var(--shadow-lg)', zIndex: 1000 }}
           onMouseLeave={() => setOpen(false)}
         >
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
@@ -420,7 +420,7 @@ export const BusinessSwitcher = ({ current, allBusinessList, onSelect, onClose }
   );
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div className="card fade-in" style={{ width: 480, padding: 0, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ padding: 20, borderBottom: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
