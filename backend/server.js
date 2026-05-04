@@ -30,12 +30,12 @@ const app = express();
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
     "img-src 'self' data: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
-    "frame-src 'none'",
+    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://www.googleapis.com",
+    "frame-src https://accounts.google.com https://atlas-9de9c.firebaseapp.com",
     "object-src 'none'",
     "base-uri 'self'",
   ].join('; '));
