@@ -2,7 +2,7 @@ databases:
   - name: atlas-db
     plan: starter
     region: singapore
-    databaseName: atlas
+    databaseName: atlas_xsx1
     user: atlas
 
 services:
