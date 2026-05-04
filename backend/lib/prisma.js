@@ -20,8 +20,8 @@ if (!globalForPrisma.prisma) {
   globalForPrisma.prisma.$connect()
     .then(() => console.log('PostgreSQL connected.'))
     .catch((err) => {
-      console.error('Database connection failed:', err.message);
-      process.exit(1);
+      // Log but don't exit — waitForDb in server.js will retry
+      console.warn('Initial DB connection attempt failed:', err.message);
     });
 }
 

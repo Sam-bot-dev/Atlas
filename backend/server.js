@@ -159,14 +159,31 @@ app.use((_req, res, next) => {
 // Global Error Handler
 app.use(errorHandler);
 
+// Poll until the DB accepts a query, with exponential backoff (max ~30s total)
+const waitForDb = async () => {
+  const { prisma } = require('./lib/prisma');
+  const maxAttempts = 10;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return;
+    } catch {
+      const delay = Math.min(1000 * 2 ** i, 8000);
+      console.log(`[startup] DB not ready, retrying in ${delay}ms... (attempt ${i + 1}/${maxAttempts})`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  console.error('[startup] DB never became ready — skipping job recovery');
+};
+
 const server = app.listen(port, () => {
   console.log(`Atlas backend running on port ${port} [${isProd ? 'production' : 'development'}]`);
-  // Wait for DB connection before recovering queued jobs
-  setTimeout(() => {
+  // Wait for DB to be ready, then recover queued jobs
+  waitForDb().then(() => {
     recoverQueuedUploadJobs().catch((err) => {
       console.error('[startup] Upload job recovery failed:', err.message);
     });
-  }, 2000);
+  });
 });
 
 // Graceful shutdown — Render sends SIGTERM before killing the process
