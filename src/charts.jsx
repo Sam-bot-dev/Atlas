@@ -37,10 +37,10 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
     range = maxY - minY || 1;
   }
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
-  const points = data.map((d, i) => ({
-    x: padL + i * stepX,
-    y: padT + innerH - (((d[yKey] || 0) - minY) / range) * innerH,
-  }));
+   const points = data.map((d, i) => ({
+     x: padL + i * stepX,
+     y: padT + innerH - ((((d[yKey] || 0) - minY) / range) * innerH),
+   }));
   const path = points.map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`)).join(' ');
   const area = path + ` L${padL + innerW},${padT + innerH} L${padL},${padT + innerH} Z`;
   const yTicks = 4;
