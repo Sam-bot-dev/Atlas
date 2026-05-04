@@ -6,7 +6,7 @@
  * real backend data).
  */
 
-const PERIOD_DAYS = { '7D': 7, '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+const PERIOD_DAYS = { '7D': 7, '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095 };
 
 /**
  * Scale demo business data to the selected period.
@@ -58,17 +58,28 @@ export function buildDemoData(business, period) {
   }
 
   // --- Series ---
-  const full = business.revenueSeries || [];
+  // Slice the stored monthly series to match the selected period window.
+  // All demo series have 7 monthly data points (Nov–May).
+  const full     = business.revenueSeries  || [];
   const custFull = business.customerGrowth || [];
-  let sliceCount;
-  if (days <= 7)       sliceCount = Math.min(2, full.length);
-  else if (days <= 30) sliceCount = Math.min(3, full.length);
-  else if (days <= 90) sliceCount = Math.min(4, full.length);
-  else if (days <= 180)sliceCount = Math.min(5, full.length);
-  else                 sliceCount = full.length;
+  const ordFull  = business.ordersSeries   || [];
 
-  const series = full.slice(-Math.max(1, sliceCount));
+  // How many monthly buckets to show for each period
+  let sliceCount;
+  if (days <= 7)        sliceCount = 1;
+  else if (days <= 30)  sliceCount = 2;
+  else if (days <= 90)  sliceCount = 3;
+  else if (days <= 180) sliceCount = 5;
+  else                  sliceCount = full.length; // 1Y → all
+
+  const series         = full.slice(-Math.max(1, sliceCount));
   const customerSeries = custFull.slice(-Math.max(1, sliceCount));
 
-  return { series, customerSeries, metrics };
+  // Orders series is weekly (Mon–Sun) — scale the values by the period factor
+  const ordersSeries = ordFull.map(d => ({
+    ...d,
+    v: Math.round((d.v || 0) * ordFactor),
+  }));
+
+  return { series, customerSeries, ordersSeries, metrics };
 }

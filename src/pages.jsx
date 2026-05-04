@@ -36,10 +36,10 @@ export const Analytics = ({ business: initialBusiness }) => {
     if (!safeBusiness?.id) return;
 
     if (DEMO_IDS.includes(safeBusiness.id)) {
-      const { series, customerSeries, metrics: scaledMetrics } = buildDemoData(safeBusiness, range);
+      const { series, customerSeries, ordersSeries: scaledOrders, metrics: scaledMetrics } = buildDemoData(safeBusiness, range);
       setRevenueSeries(series);
       setCustomerGrowth(customerSeries);
-      setOrdersSeries(safeBusiness?.ordersSeries || []);
+      setOrdersSeries(scaledOrders);
       setMetrics(scaledMetrics);
       return;
     }

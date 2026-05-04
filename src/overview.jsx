@@ -152,6 +152,8 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
   const [business, setBusiness] = React.useState(initialBusiness || {});
   const [metrics, setMetrics] = React.useState((initialBusiness || {}).metrics || {});  
   const [revenueSeries, setRevenueSeries] = React.useState((initialBusiness || {}).revenueSeries || []);
+  const [customerGrowth, setCustomerGrowth] = React.useState((initialBusiness || {}).customerGrowth || []);
+  const [ordersSeries, setOrdersSeries] = React.useState((initialBusiness || {}).ordersSeries || []);
   const [insights, setInsights] = React.useState((initialBusiness || {}).insights || []);
   const [actions, setActions] = React.useState((initialBusiness || {}).actions || []);
   const [peakHours, setPeakHours] = React.useState((initialBusiness || {}).peakHours || []);
@@ -301,6 +303,8 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
       setBusiness(initialBusiness || {});
       setMetrics((initialBusiness || {}).metrics || {});
       setRevenueSeries((initialBusiness || {}).revenueSeries || []);
+      setCustomerGrowth((initialBusiness || {}).customerGrowth || []);
+      setOrdersSeries((initialBusiness || {}).ordersSeries || []);
       setInsights((initialBusiness || {}).insights || []);
       setActions((initialBusiness || {}).actions || []);
       setPeakHours((initialBusiness || {}).peakHours || []);
@@ -337,7 +341,7 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
   setLoadingCharts(true);
   setLoadingForecast(true);
   Promise.all([
-    AtlasAPI.metrics.series(initialBusiness.id, 'revenue'),
+    AtlasAPI.metrics.series(initialBusiness.id, 'revenue', period),
     AtlasAPI.metrics.peakHours(initialBusiness.id, period),
     AtlasAPI.metrics.forecast(initialBusiness.id)
   ]).then(([rev, peak, forecast]) => {
@@ -469,8 +473,10 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
   // For demo businesses: rebuild series + metrics whenever period changes
   React.useEffect(() => {
     if (!isDemo) return;
-    const { series, metrics: scaledMetrics } = buildDemoData(initialBusiness, period);
+    const { series, customerSeries, ordersSeries, metrics: scaledMetrics } = buildDemoData(initialBusiness, period);
     setRevenueSeries(series);
+    setCustomerGrowth(customerSeries);
+    setOrdersSeries(ordersSeries);
     setMetrics(scaledMetrics);
   }, [period, isDemo, initialBusiness]);
 
@@ -589,7 +595,7 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ display: 'flex', gap: 4, padding: 2, background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
-            {['1W', '1M', '3M', '6M', '1Y'].map(p => (
+            {['7D', '1M', '3M', '6M', '1Y'].map(p => (
               <button key={p} onClick={() => setPeriod(p)} style={{
                 padding: '4px 10px', border: 'none', borderRadius: 4,
                 background: period === p ? 'var(--bg-elevated)' : 'transparent',
