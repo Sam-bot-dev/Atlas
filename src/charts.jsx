@@ -40,8 +40,8 @@ const Tooltip = ({ x, y, children, svgW }) => {
 
 // ─── LineChart ────────────────────────────────────────────────────────────────
 const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yKey = 'v', showAxis = true, fill = true }) => {
-  const gradId   = React.useRef(`grad-${Math.random().toString(36).slice(2, 8)}`).current;
-  const clipId   = React.useRef(`clip-${Math.random().toString(36).slice(2, 8)}`).current;
+  const gradId   = React.useRef(`grad-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`).current;
+  const clipId   = React.useRef(`clip-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`).current;
   const [animKey, setAnimKey] = React.useState(0);
   const [hovered, setHovered] = React.useState(null); // index
   const prevDataRef = React.useRef(data);

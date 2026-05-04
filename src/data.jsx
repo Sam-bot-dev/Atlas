@@ -891,4 +891,4 @@ const BUSINESS_LIST = [
 export const ATLAS_BUSINESSES = Object.fromEntries(
   Object.entries(BUSINESSES).map(([id, biz]) => [id, { ...biz, isDemo: true }])
 );
-export const ATLAS_BUSINESS_LIST = BUSINESS_LIST.map(b => ({ ...b, isDemo: true }));
+export const ATLAS_BUSINESS_LIST = BUSINESS_LIST.map(b => ({ ...b, name: ATLAS_BUSINESSES[b.id].name || b.name, isDemo: true }));
