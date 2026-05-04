@@ -198,7 +198,6 @@ const detectBusiness = asyncHandler(async (req, res) => {
 
   if (apiKey) {
     try {
-      // Use Places API (New) — searchText endpoint (v1, not deprecated findplacefromtext)
       const query = `${name.trim()} ${(address || '').trim()}`.trim();
       const placesRes = await fetch(
         'https://places.googleapis.com/v1/places:searchText',
@@ -207,8 +206,19 @@ const detectBusiness = asyncHandler(async (req, res) => {
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': apiKey,
-            // Only request the fields we need — minimises billing cost
-            'X-Goog-FieldMask': 'places.displayName,places.types,places.formattedAddress,places.primaryType',
+            'X-Goog-FieldMask': [
+              'places.displayName',
+              'places.types',
+              'places.primaryType',
+              'places.formattedAddress',
+              'places.rating',
+              'places.userRatingCount',
+              'places.websiteUri',
+              'places.nationalPhoneNumber',
+              'places.regularOpeningHours',
+              'places.photos',
+              'places.id',
+            ].join(','),
           },
           body: JSON.stringify({
             textQuery: query,
@@ -230,16 +240,29 @@ const detectBusiness = asyncHandler(async (req, res) => {
         if (place) {
           const category = mapPlaceTypeToCategory(place.primaryType, place.types);
           const estimates = getHeuristicEstimates(category);
+
+          // Build opening hours summary if available
+          const hours = place.regularOpeningHours?.weekdayDescriptions || null;
+
           return res.json({
-            // Return the user's original name — don't overwrite what they typed
             name: name.trim(),
+            // Return the confirmed Google name so the UI can show it
+            confirmedName: place.displayName?.text || name.trim(),
             address: place.formattedAddress || address || '',
             category,
             detectedVia: 'google_places',
+            placeId: place.id || '',
             placeTypes: place.types || [],
+            rating: place.rating || null,
+            ratingCount: place.userRatingCount || null,
+            phone: place.nationalPhoneNumber || null,
+            website: place.websiteUri || null,
+            openingHours: hours,
             ...estimates,
           });
         }
+        // No place found — skip detection entirely, don't fall back to regex
+        return res.json({ name: name.trim(), address: address || '', detectedVia: 'not_found' });
       }
     } catch (err) {
       console.error('[detectBusiness] Places API error:', err.message);
@@ -247,7 +270,7 @@ const detectBusiness = asyncHandler(async (req, res) => {
     }
   }
 
-  // Deterministic regex fallback — works without any API key
+  // Deterministic regex fallback — only used when no API key is configured
   const lower = name.toLowerCase();
   let category = 'Business';
   if (/bak[e]?ry|cake|sweets|mithai|confection/.test(lower))       category = 'Bakery';

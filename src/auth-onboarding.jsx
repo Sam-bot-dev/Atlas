@@ -195,7 +195,14 @@ React.useEffect(() => {
       try {
         const userName = bizName.split('\'s')[0] || 'Owner'; // Extract personal name e.g. "Priya" from "Priya's Bakes"
         const user = await AtlasAPI.auth.signup({ email, password, name: userName });
-        const biz = await AtlasAPI.businesses.create({ name: bizName, category: bizType, address: bizAddr, goals });
+        const biz = await AtlasAPI.businesses.create({
+          name: bizName,
+          category: bizType,
+          address: detectResult?.address || bizAddr,
+          location: detectResult?.address || bizAddr,
+          placeId: detectResult?.placeId || '',
+          goals,
+        });
 
         // Bug #7 fix: now that we have a real bizId, upload any staged files from step 2
         if (biz?.id && uploads.length > 0) {
@@ -280,31 +287,98 @@ React.useEffect(() => {
           )}
           {step === 1 && !detecting && (
             <>
-              <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 8 }}>We think you run a…</div>
-              <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32 }}>Confirm or edit. This shapes which insights and automations we suggest.</div>
+              <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 8 }}>
+                {detectResult?.detectedVia === 'not_found' ? 'No match found' : 'We found your business'}
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--ink-3)', marginBottom: 32 }}>
+                {detectResult?.detectedVia === 'not_found'
+                  ? "Google couldn't confirm this business. You can still continue — just fill in the details manually."
+                  : 'Confirm or edit. This shapes which insights and automations we suggest.'}
+              </div>
               <div className="card fade-in" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <div style={{ width: 40, height: 40, borderRadius: 8, background: '#a16207', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>{bizName.substring(0,2).toUpperCase()}</div>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 600 }}>{bizName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{bizAddr}</div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>
+                        {detectResult?.confirmedName || bizName}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{detectResult?.address || bizAddr}</div>
                     </div>
                   </div>
-                  {/* Fix #47: show 'Smart detected' only when Google Places matched; 'Pattern matched' for regex */}
-                  <span className={`badge ${detectResult?.detectedVia === 'google_places' ? 'badge-positive' : ''}`}>
-                    <Icon name="check" size={10} strokeWidth={2.5}/> {detectResult?.detectedVia === 'google_places' ? 'Smart detected' : 'Pattern matched'}
-                  </span>
+                  {detectResult?.detectedVia === 'google_places' && (
+                    <span className="badge badge-positive" style={{ fontSize: 10 }}>
+                      <Icon name="check" size={10} strokeWidth={2.5}/> Google verified
+                    </span>
+                  )}
+                  {detectResult?.detectedVia === 'regex' && (
+                    <span className="badge" style={{ fontSize: 10 }}>Pattern matched</span>
+                  )}
                 </div>
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--ink-3)' }}>Type</span>
-                    <input style={{ background: 'transparent', border: 'none', textAlign: 'right', fontWeight: 500, color: 'inherit' }} value={bizType} onChange={e => setBizType(e.target.value)}/>
+
+                {/* Google data — rating, phone, hours */}
+                {detectResult?.detectedVia === 'google_places' && (
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                    {detectResult.rating && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--ink-3)' }}>Google rating</span>
+                        <span style={{ fontWeight: 600 }}>
+                          {'★'.repeat(Math.round(detectResult.rating))}{'☆'.repeat(5 - Math.round(detectResult.rating))} {detectResult.rating.toFixed(1)}
+                          {detectResult.ratingCount && <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}> ({detectResult.ratingCount.toLocaleString()} reviews)</span>}
+                        </span>
+                      </div>
+                    )}
+                    {detectResult.phone && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--ink-3)' }}>Phone</span>
+                        <span>{detectResult.phone}</span>
+                      </div>
+                    )}
+                    {detectResult.website && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--ink-3)' }}>Website</span>
+                        <a href={detectResult.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ink-1)', textDecoration: 'underline', fontSize: 12 }}>
+                          {detectResult.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </a>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Type</span>
+                      <input style={{ background: 'transparent', border: 'none', textAlign: 'right', fontWeight: 500, color: 'inherit' }} value={bizType} onChange={e => setBizType(e.target.value)}/>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Est. monthly revenue</span>
+                      <span className="mono">{detectResult?.estimatedRevenue || '—'}</span>
+                    </div>
+                    {detectResult.openingHours && (
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ color: 'var(--ink-3)', marginBottom: 4 }}>Opening hours</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.7 }}>
+                          {detectResult.openingHours.slice(0, 3).map((h, i) => <div key={i}>{h}</div>)}
+                          {detectResult.openingHours.length > 3 && <div style={{ color: 'var(--ink-4)' }}>+{detectResult.openingHours.length - 3} more days</div>}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {/* Fix #46: show actual API result for channel/revenue instead of hardcoded values */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Channel</span><span>{detectResult?.channel || 'WhatsApp orders + local delivery'}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Est. monthly revenue</span><span className="mono">{detectResult?.estimatedRevenue || '₹80K–1.5L'}</span></div>
-                </div>
+                )}
+
+                {/* Fallback — manual fields */}
+                {detectResult?.detectedVia !== 'google_places' && (
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Type</span>
+                      <input style={{ background: 'transparent', border: 'none', textAlign: 'right', fontWeight: 500, color: 'inherit' }} value={bizType} onChange={e => setBizType(e.target.value)}/>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Channel</span>
+                      <span>{detectResult?.channel || 'WhatsApp orders + local delivery'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Est. monthly revenue</span>
+                      <span className="mono">{detectResult?.estimatedRevenue || '₹80K–1.5L'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
