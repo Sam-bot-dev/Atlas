@@ -151,7 +151,11 @@ const firebaseLogin = asyncHandler(async (req, res) => {
   try {
     decoded = await admin.auth().verifyIdToken(idToken);
   } catch (err) {
-    console.error('Firebase Admin Error:', err);
+    console.error('Firebase Admin verifyIdToken error:', err.message);
+    if (err.message.includes('not configured') || err.message.includes('Init failed')) {
+      res.status(503);
+      throw new Error('Firebase authentication is not configured on the server');
+    }
     res.status(401);
     throw new Error('Invalid Firebase token');
   }
