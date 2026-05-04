@@ -106,10 +106,156 @@ const DEMO_NOTIFICATIONS = {
   service:  [{ message: "Quote follow-up sent to 3 leads (7-day cadence)", time: "2h ago" }, { message: "Project #P-14 complete — review request sent", time: "4h ago" }, { message: "Crew at 94% — hiring alert triggered", time: "Yesterday" }],
 };
 
-export const TopBar = ({ title, business, user, onExit = null }) => {
+// ── Shared modal wrapper ──────────────────────────────────────────────────────
+const SimpleModal = ({ title, icon, onClose, children }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
+    <div className="card fade-in" style={{ width: '100%', maxWidth: 440, padding: 28, background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name={icon} size={16}/>
+          <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>
+        </div>
+        <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={onClose}><Icon name="x" size={15}/></button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+// ── Profile modal ─────────────────────────────────────────────────────────────
+const ProfileModal = ({ user, onClose, onNameUpdate }) => {
+  const [name, setName] = React.useState(user?.name || '');
+  const [saving, setSaving] = React.useState(false);
+  const [msg, setMsg] = React.useState('');
+
+  const save = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const { AtlasAPI } = await import('./api');
+      await AtlasAPI.auth.updateName(name.trim());
+      // Update session cache
+      try {
+        const cached = sessionStorage.getItem('atlas-user');
+        if (cached) {
+          const u = JSON.parse(cached);
+          sessionStorage.setItem('atlas-user', JSON.stringify({ ...u, name: name.trim() }));
+        }
+      } catch { /* ignore */ }
+      onNameUpdate(name.trim());
+      setMsg('Saved!');
+    } catch (e) {
+      setMsg('Failed: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SimpleModal title="Profile" icon="user" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Display name</label>
+          <input
+            className="input"
+            value={name}
+            onChange={e => { setName(e.target.value); setMsg(''); }}
+            onKeyDown={e => e.key === 'Enter' && save()}
+            placeholder="Your name"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', display: 'block', marginBottom: 6 }}>Email</label>
+          <input className="input" value={user?.email || ''} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}/>
+          <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4 }}>Email cannot be changed</div>
+        </div>
+        {msg && <div style={{ fontSize: 12, color: msg.startsWith('Failed') ? 'var(--negative)' : 'var(--positive)', fontWeight: 500 }}>{msg}</div>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={save} disabled={saving || !name.trim()}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </SimpleModal>
+  );
+};
+
+// ── Help modal ────────────────────────────────────────────────────────────────
+const HelpModal = ({ onClose, onExit }) => {
+  const [deleting, setDeleting] = React.useState(false);
+  const [confirm, setConfirm] = React.useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm) { setConfirm(true); return; }
+    setDeleting(true);
+    try {
+      const { AtlasAPI } = await import('./api');
+      await AtlasAPI.auth.deleteAccount();
+      sessionStorage.clear();
+      if (onExit) onExit();
+    } catch (e) {
+      alert('Failed to delete account: ' + e.message);
+      setDeleting(false);
+      setConfirm(false);
+    }
+  };
+
+  return (
+    <SimpleModal title="Help & Support" icon="help-circle" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {[
+          { label: 'Documentation', desc: 'Guides and feature walkthroughs', href: '#' },
+          { label: 'Contact support', desc: 'Email us at support@atlas.ai', href: 'mailto:support@atlas.ai' },
+          { label: 'Report a bug', desc: 'Something not working right?', href: 'mailto:support@atlas.ai?subject=Bug report' },
+        ].map(item => (
+          <a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)', textDecoration: 'none', color: 'inherit' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>{item.desc}</div>
+            </div>
+            <Icon name="arrow-right" size={13} color="var(--ink-4)"/>
+          </a>
+        ))}
+
+        <div style={{ marginTop: 8, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 8 }}>Danger zone</div>
+          {confirm ? (
+            <div style={{ padding: 14, borderRadius: 8, background: '#fee2e2', border: '1px solid #fca5a5' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', marginBottom: 8 }}>Are you sure? This cannot be undone.</div>
+              <div style={{ fontSize: 12, color: '#991b1b', marginBottom: 12 }}>All your businesses, records, and data will be permanently deleted.</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-sm" style={{ background: '#dc2626', color: 'white', border: 'none' }} onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleDelete}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: 'transparent', color: '#dc2626', fontSize: 13, cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <Icon name="trash" size={13} color="#dc2626"/> Delete my account
+            </button>
+          )}
+        </div>
+      </div>
+    </SimpleModal>
+  );
+};
+
+export const TopBar = ({ title, business, user, onExit = null, onOpenChat }) => {
   const [open, setOpen] = React.useState(false);
-  const [askOpen, setAskOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
+  const [modal, setModal] = React.useState(null);
   const userName = user?.name || business?.owner || 'Owner';
   const initials = userName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'AT';
 
@@ -117,17 +263,17 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
     ? user.notifications
     : (DEMO_NOTIFICATIONS[business?.id] || []);
 
-  // Wire up ⌘K / Ctrl+K
+  // ⌘K opens the main chatbot
   React.useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setAskOpen(prev => !prev);
+        if (onOpenChat) onOpenChat();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [onOpenChat]);
 
   return (
     <div style={{
@@ -144,13 +290,7 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button className="btn btn-sm" style={{ background: 'var(--bg-tinted)', border: '1px solid var(--border-subtle)', color: 'var(--ink-3)' }} onClick={() => setAskOpen(true)}>
-          <Icon name="sparkles" size={13}/>
-          Ask Atlas…
-          <span className="mono" style={{ padding: '1px 5px', borderRadius: 3, background: 'var(--bg-elevated)', border: '1px solid var(--border)', fontSize: 10, marginLeft: 8 }}>⌘K</span>
-        </button>
-
-        {/* Bell — now opens a notification dropdown instead of doing nothing */}
+        {/* Bell */}
         <div style={{ position: 'relative' }}>
           <button className="btn btn-ghost btn-sm" style={{ position: 'relative' }} onClick={() => setNotifOpen(p => !p)}>
             <Icon name="bell" size={15}/>
@@ -201,7 +341,9 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
             <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{user?.email || ''}</div>
           </div>
           {[{ label: 'Profile', icon: 'user' }, { label: 'Billing', icon: 'credit-card' }, { label: 'Help', icon: 'help-circle' }].map(item => (
-            <button key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', border: 'none', background: 'transparent', fontSize: 13, cursor: 'pointer', borderRadius: 6, textAlign: 'left' }}
+            <button key={item.label}
+              onClick={() => { setOpen(false); setModal(item.label.toLowerCase()); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', border: 'none', background: 'transparent', fontSize: 13, cursor: 'pointer', borderRadius: 6, textAlign: 'left' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
@@ -221,96 +363,34 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
         </div>
       )}
 
-      {askOpen && <AskAtlas onClose={() => setAskOpen(false)} business={business}/>}
-    </div>
-  );
-};
+      {/* Profile modal */}
+      {modal === 'profile' && (
+        <ProfileModal user={user} onClose={() => setModal(null)} onNameUpdate={(name) => {
+          // Bubble up via a custom event so App.jsx can update currentUser
+          window.dispatchEvent(new CustomEvent('atlas:nameUpdated', { detail: { name } }));
+          setModal(null);
+        }}/>
+      )}
 
-const AskAtlas = ({ onClose, business }) => {
-  const [q, setQ] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [answer, setAnswer] = React.useState(null);
-  const [hasError, setHasError] = React.useState(false);
-
-  const samplesByType = {
-    'Home Baker':       ['Why was last Saturday slower?', 'What should I do about cinnamon roll margins?', 'Show me my best customers'],
-    'Retail Shop':      ['Why did foot traffic drop Thursday?', 'Which SKUs should I mark down?', 'What is my busiest hour this week?'],
-    'Pharmacy':         ['Why is Monday wait time higher?', 'Which refills are most at risk of lapsing?', 'What is driving front-of-store growth?'],
-    'Cafe':             ['Why is cold brew growing so fast?', 'How do I reduce oat milk cost?', 'Who are my top loyalty members?'],
-    'Import/Export':    ['Why is on-time rate dropping?', 'Which clients are at churn risk?', 'What is the FX impact this quarter?'],
-    'Service Business': ['Why did revenue jump in March?', 'Which jobs have the best margin?', 'When should I hire another crew member?'],
-  };
-  const samples = samplesByType[business?.category] || samplesByType['Home Baker'];
-
-  // Close on Escape
-  React.useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  const handleAsk = async (query) => {
-    if (!query.trim() || loading) return;
-    setLoading(true);
-    setAnswer(null);
-    setHasError(false);
-    try {
-      // Use askWithContext — passes full business object to the public /api/v1/ask endpoint.
-      // This works for both demo businesses (no DB record) and real ones, replacing the
-      // old insights.ask(business.id) call which would 404 for demo IDs.
-      const res = await AtlasAPI.insights.askWithContext(query, business);
-      setAnswer(res.answer || 'No response generated.');
-    } catch {
-      setHasError(true);
-      setAnswer('Could not reach the AI. Check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }}
-      onClick={onClose}
-    >
-      <div className="card fade-in" style={{ width: 560, padding: 0, boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon name="sparkles" size={16}/>
-          <input
-            autoFocus className="input"
-            style={{ border: 'none', padding: 0, fontSize: 14, flex: 1 }}
-            placeholder={`Ask anything about ${business?.name}…`}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAsk(q)}
-          />
-          {loading
-            ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--ink-1)', animation: 'spin 600ms linear infinite', flexShrink: 0 }}/>
-            : <span className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>esc</span>
-          }
-        </div>
-
-        {answer && (
-          <div className="fade-in" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 13, color: hasError ? 'var(--negative)' : 'var(--ink-2)', lineHeight: 1.6, background: 'var(--bg-subtle)', whiteSpace: 'pre-wrap' }}>
-            {answer}
-          </div>
-        )}
-
-        <div style={{ padding: 8 }}>
-          <div className="eyebrow" style={{ padding: '8px 10px' }}>Suggested</div>
-          {samples.map((s, i) => (
-            <div key={i}
-              style={{ padding: '8px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              onClick={() => { setQ(s); handleAsk(s); }}
-            >
-              <Icon name="arrow-right" size={12} color="var(--ink-4)"/>
-              {s}
+      {/* Billing modal */}
+      {modal === 'billing' && (
+        <SimpleModal title="Billing" icon="credit-card" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.7 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--ink-4)', marginBottom: 4 }}>Current plan</div>
+              <div style={{ fontWeight: 600 }}>Atlas Pro Trial</div>
             </div>
-          ))}
-        </div>
-      </div>
+            <div style={{ padding: 16, background: 'var(--bg-subtle)', borderRadius: 8, fontSize: 13, color: 'var(--ink-3)' }}>
+              Billing management is coming soon. You're on a free trial — no charges yet.
+            </div>
+          </div>
+        </SimpleModal>
+      )}
+
+      {/* Help modal */}
+      {modal === 'help' && (
+        <HelpModal onClose={() => setModal(null)} onExit={onExit}/>
+      )}
     </div>
   );
 };
@@ -330,7 +410,9 @@ export const BusinessSwitcher = ({ current, allBusinessList, onSelect, onClose }
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 600 }}>Switch business</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Each demo loads its own dataset.</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                {(allBusinessList || ATLAS_BUSINESS_LIST).length === 0 ? 'No businesses yet' : `${(allBusinessList || ATLAS_BUSINESS_LIST).length} business${(allBusinessList || ATLAS_BUSINESS_LIST).length !== 1 ? 'es' : ''}`}
+              </div>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={14}/></button>
           </div>

@@ -143,6 +143,8 @@ const AtlasAPI = {
       await signOut(auth);
       clearToken();
     },
+    updateName: (name) => patch('/auth/me', { name }),
+    deleteAccount: () => del('/auth/me'),
     me: async () => {
       // Fix #98: if we already have a token, skip the full Firebase onAuthStateChanged
       // + token exchange round-trip that happens on every app mount.

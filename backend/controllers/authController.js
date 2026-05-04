@@ -185,10 +185,40 @@ const firebaseLogin = asyncHandler(async (req, res) => {
   sendAuthResponse(res, user);
 });
 
+// @desc    Update current user profile (name)
+// @route   PATCH /api/v1/auth/me
+// @access  Private
+const updateMe = asyncHandler(async (req, res) => {
+  const name = normalizeName(req.body.name || '');
+  if (!name || name.length > 80) {
+    res.status(400);
+    throw new Error('Name must be between 1 and 80 characters');
+  }
+
+  const user = await prisma.user.update({
+    where: { id: req.user.id },
+    data: { name },
+    select: { id: true, name: true, email: true, createdAt: true },
+  });
+
+  // Update session cache key so TopBar reflects the new name immediately
+  res.json({ _id: user.id, name: user.name, email: user.email, createdAt: user.createdAt });
+});
+
+// @desc    Delete current user account and all data (cascades via DB)
+// @route   DELETE /api/v1/auth/me
+// @access  Private
+const deleteMe = asyncHandler(async (req, res) => {
+  await prisma.user.delete({ where: { id: req.user.id } });
+  res.json({ deleted: true });
+});
+
 module.exports = {
   signupUser,
   loginUser,
   getMe,
+  updateMe,
+  deleteMe,
   logoutUser,
   firebaseLogin,
 };

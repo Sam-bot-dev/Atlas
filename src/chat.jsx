@@ -5,86 +5,118 @@ import { AtlasAPI } from './api';
 // Per-business chat history — survives panel close/reopen within the session
 const chatHistory = {};
 
+const DEMO_IDS = ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'];
+
+// Build a rich context object from all available business data
+const buildFullContext = async (business) => {
+  const isDemo = DEMO_IDS.includes(business?.id) || business?.isDemo;
+  if (isDemo) return business; // demo already has everything in the object
+
+  try {
+    // Fetch records and business details in parallel
+    const [records] = await Promise.all([
+      AtlasAPI.records.list(business.id).catch(() => null),
+    ]);
+
+    return {
+      ...business,
+      _records: records ? {
+        orderCount: records.orders?.length || 0,
+        totalRevenue: (records.orders || []).reduce((s, o) => s + (o.total || 0), 0),
+        topProducts: (records.products || []).sort((a, b) => b.revenue - a.revenue).slice(0, 5).map(p => ({ name: p.name, revenue: p.revenue, sold: p.unitsSold })),
+        customerCount: records.customers?.length || 0,
+        topCustomers: (records.customers || []).sort((a, b) => b.totalSpend - a.totalSpend).slice(0, 5).map(c => ({ name: c.name, spend: c.totalSpend, orders: c.ordersCount })),
+        lowStock: (records.inventory || []).filter(i => i.status === 'low' || i.status === 'out').map(i => ({ item: i.itemName, qty: i.quantityOnHand, reorder: i.reorderPoint })),
+        recentReviews: (records.reviews || []).slice(0, 10).map(r => ({ rating: r.rating, sentiment: r.sentiment, body: r.body?.slice(0, 80) })),
+        avgRating: records.reviews?.length ? (records.reviews.reduce((s, r) => s + r.rating, 0) / records.reviews.length).toFixed(1) : null,
+      } : null,
+    };
+  } catch {
+    return business;
+  }
+};
+
 export const ChatPanel = ({ business, onClose }) => {
   const bizKey = business?.id || 'default';
+  const isDemo = DEMO_IDS.includes(business?.id) || business?.isDemo;
+
   const [messages, setMessages] = React.useState(() => {
     if (chatHistory[bizKey]) return chatHistory[bizKey];
-    return [{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }];
+    return [{
+      role: 'assistant',
+      content: `Hi! I'm Atlas, your AI business partner for **${business?.name}**. I know your records, metrics, insights, and actions. Ask me anything.`,
+      timestamp: new Date(),
+    }];
   });
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [fullContext, setFullContext] = React.useState(null);
   const scrollRef = React.useRef(null);
   const inputRef = React.useRef(null);
 
-  // Reset when switching businesses
+  // Load full context once on open
+  React.useEffect(() => {
+    buildFullContext(business).then(setFullContext);
+  }, [bizKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   React.useEffect(() => {
     if (chatHistory[bizKey]) {
       setMessages(chatHistory[bizKey]);
     } else {
-      const welcome = [{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }];
+      const welcome = [{
+        role: 'assistant',
+        content: `Hi! I'm Atlas, your AI business partner for **${business?.name}**. I know your records, metrics, insights, and actions. Ask me anything.`,
+        timestamp: new Date(),
+      }];
       setMessages(welcome);
       chatHistory[bizKey] = welcome;
     }
-  }, [bizKey, business.name]);
+  }, [bizKey, business?.name]);
 
-  // Persist messages to session cache
-  React.useEffect(() => {
-    chatHistory[bizKey] = messages;
-  }, [messages, bizKey]);
+  React.useEffect(() => { chatHistory[bizKey] = messages; }, [messages, bizKey]);
 
   React.useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  // Auto-focus input on open
-  React.useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, []);
+  React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
   const handleSend = async (text) => {
     const q = (text || query).trim();
     if (!q || loading) return;
 
-    const userMsg = { role: 'user', content: q, timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { role: 'user', content: q, timestamp: new Date() }]);
     setQuery('');
     setLoading(true);
 
     try {
-      const res = await AtlasAPI.insights.askWithContext(q, business);
+      const ctx = fullContext || business;
+      const res = await AtlasAPI.insights.askWithContext(q, ctx);
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: res.answer,
         evidence: res.evidence,
-        timestamp: new Date()
+        timestamp: new Date(),
       }]);
-    } catch (err) {
-      void err;
+    } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: "I'm having trouble connecting right now. Please try again in a moment.",
-        timestamp: new Date()
+        timestamp: new Date(),
       }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    handleSend(query);
-  };
-
-  // Suggested questions per business type
   const suggestions = {
-    'Home Baker': ['What drove revenue this week?', 'Which product has the best margin?', 'When are my busiest hours?'],
-    'Retail Shop': ['Which SKUs should I reorder?', 'Why did foot traffic drop?', 'What is my best-selling category?'],
-    'Pharmacy': ['Which refills are due this week?', 'What is my inventory health?', 'How is customer retention?'],
-    'Cafe': ['What is my peak hour today?', 'How can I reduce milk waste?', 'Which items drive repeat visits?'],
-    'Import/Export': ['Which shipments are at risk?', 'What is my on-time delivery rate?', 'Which clients need follow-up?'],
+    'Home Baker':       ['What drove revenue this week?', 'Which product has the best margin?', 'Who are my top customers?'],
+    'Retail Shop':      ['Which SKUs should I reorder?', 'Why did foot traffic drop?', 'What is my best-selling category?'],
+    'Pharmacy':         ['Which refills are due this week?', 'What is my inventory health?', 'How is customer retention?'],
+    'Cafe':             ['What is my peak hour today?', 'How can I reduce waste?', 'Which items drive repeat visits?'],
+    'Import/Export':    ['Which shipments are at risk?', 'What is my on-time delivery rate?', 'Which clients need follow-up?'],
     'Service Business': ['Which jobs have the best margin?', 'How many leads are active?', 'What is my conversion rate?'],
+    'Restaurant':       ['What are my top dishes?', 'When is my busiest time?', 'How are my reviews trending?'],
   };
   const quickQuestions = suggestions[business?.category] || suggestions['Home Baker'];
   const showSuggestions = messages.length <= 1;
@@ -94,69 +126,62 @@ export const ChatPanel = ({ business, onClose }) => {
       position: 'fixed', right: 24, bottom: 24, width: 400, height: 600,
       background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
       borderRadius: 16, boxShadow: 'var(--shadow-lg)', zIndex: 2000,
-      display: 'flex', flexDirection: 'column', overflow: 'hidden'
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       {/* Header */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-subtle)' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-subtle)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--ink-1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="zap" size={14} strokeWidth={2.5}/>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--ink-1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="sparkles" size={15} strokeWidth={2}/>
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Ask Atlas</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>AI Business Assistant</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Atlas AI</div>
+            <div style={{ fontSize: 11, color: 'var(--positive)' }}>
+              {fullContext?._records ? `● ${fullContext._records.orderCount} orders · ${fullContext._records.customerCount} customers loaded` : '● Connected'}
+            </div>
           </div>
         </div>
-        <button className="btn btn-ghost" style={{ padding: 4 }} onClick={onClose}><Icon name="x" size={18}/></button>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>⌘K</span>
+          <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
             <div style={{
-              padding: '12px 16px', borderRadius: 12, fontSize: 14, lineHeight: 1.5,
+              padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.55,
               background: m.role === 'user' ? 'var(--ink-1)' : 'var(--bg-subtle)',
               color: m.role === 'user' ? 'white' : 'var(--ink-1)',
               borderBottomRightRadius: m.role === 'user' ? 2 : 12,
               borderBottomLeftRadius: m.role === 'assistant' ? 2 : 12,
             }}>
               {m.content.split('\n').map((line, idx) => (
-                <p key={idx} style={{ margin: 0, marginBottom: line ? 8 : 0 }}>
-                  {line.split(/(\*\*.*?\*\*)/).map((part, pidx) => 
-                    part.startsWith('**') && part.endsWith('**') 
-                      ? <strong key={pidx}>{part.slice(2, -2)}</strong> 
+                <p key={idx} style={{ margin: 0, marginBottom: idx < m.content.split('\n').length - 1 ? 6 : 0 }}>
+                  {line.split(/(\*\*.*?\*\*)/).map((part, pidx) =>
+                    part.startsWith('**') && part.endsWith('**')
+                      ? <strong key={pidx}>{part.slice(2, -2)}</strong>
                       : part
                   )}
                 </p>
               ))}
-              {m.evidence && m.evidence.length > 0 && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {m.evidence.map((e, ei) => (
-                    <span key={ei} className="badge" style={{ fontSize: 10, background: 'var(--bg-elevated)' }}>{e}</span>
-                  ))}
-                </div>
-              )}
             </div>
-            <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4, textAlign: m.role === 'user' ? 'right' : 'left' }}>
+            <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 3, textAlign: m.role === 'user' ? 'right' : 'left' }}>
               {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
         ))}
 
-        {/* Quick suggestions — only shown before first user message */}
         {showSuggestions && !loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {quickQuestions.map((q, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(q)}
-                style={{
-                  textAlign: 'left', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-                  background: 'var(--bg-subtle)', border: '1px solid var(--border)',
-                  cursor: 'pointer', color: 'var(--ink-2)',
-                  transition: 'background 120ms',
-                }}
+              <button key={i} onClick={() => handleSend(q)} style={{
+                textAlign: 'left', padding: '8px 12px', borderRadius: 8, fontSize: 12,
+                background: 'var(--bg-subtle)', border: '1px solid var(--border)',
+                cursor: 'pointer', color: 'var(--ink-2)', transition: 'background 120ms',
+              }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-subtle)'}
               >
@@ -167,10 +192,10 @@ export const ChatPanel = ({ business, onClose }) => {
         )}
 
         {loading && (
-          <div style={{ alignSelf: 'flex-start', background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: 12, borderBottomLeftRadius: 2 }}>
+          <div style={{ alignSelf: 'flex-start', background: 'var(--bg-subtle)', padding: '10px 14px', borderRadius: 12, borderBottomLeftRadius: 2 }}>
             <div style={{ display: 'flex', gap: 4 }}>
               {[0, 1, 2].map(dot => (
-                <div key={dot} className="dot-blink" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-4)', animationDelay: `${dot * 150}ms` }}/>
+                <div key={dot} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-4)', animation: `bounce 1s ${dot * 0.15}s infinite` }}/>
               ))}
             </div>
           </div>
@@ -178,26 +203,31 @@ export const ChatPanel = ({ business, onClose }) => {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} style={{ padding: 20, borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
         <div style={{ position: 'relative' }}>
           <input
             ref={inputRef}
             className="input"
             placeholder={`Ask about ${business?.name || 'your business'}…`}
-            style={{ paddingRight: 48, borderRadius: 12, height: 44, background: 'var(--bg-elevated)' }}
+            style={{ paddingRight: 48, borderRadius: 10, height: 42, background: 'var(--bg-elevated)', fontSize: 13 }}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmit(e)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(query); } }}
             disabled={loading}
           />
-          <button type="submit" className="btn btn-primary" style={{ position: 'absolute', right: 6, top: 6, bottom: 6, padding: 8, borderRadius: 8 }} disabled={!query.trim() || loading}>
-            <Icon name="arrow-up" size={16}/>
+          <button
+            className="btn btn-primary"
+            style={{ position: 'absolute', right: 5, top: 5, bottom: 5, padding: '0 10px', borderRadius: 7 }}
+            disabled={!query.trim() || loading}
+            onClick={() => handleSend(query)}
+          >
+            <Icon name="arrow-up" size={15}/>
           </button>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', marginTop: 8 }}>
-          Atlas AI · responses may not always be accurate
+        <div style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', marginTop: 6 }}>
+          Atlas AI · knows your records, metrics & insights
         </div>
-      </form>
+      </div>
     </div>
   );
 };

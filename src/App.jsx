@@ -91,7 +91,7 @@ export default function App() {
            try {
              const user = JSON.parse(cachedUser);
              setCurrentUser(user);
-             // Still verify we have businesses
+             setIsDemoMode(false); // cached session = real user
              const businesses = await AtlasAPI.businesses.list();
              if (businesses && businesses.length > 0) {
                setView('dashboard');
@@ -106,6 +106,7 @@ export default function App() {
 
          const user = await AtlasAPI.auth.me();
          setCurrentUser(user);
+         setIsDemoMode(false); // authenticated = real user
          // Cache user to avoid repeated me() calls
          try { sessionStorage.setItem('atlas-user', JSON.stringify(user)); } catch { /* ignore */ }
          // Check if user has businesses to decide where to land
@@ -163,27 +164,26 @@ export default function App() {
    const handleLogin = (user) => {
      if (!user) return;
      setCurrentUser(user);
-     // Check if user has any businesses to decide onboarding vs dashboard
+     setIsDemoMode(false); // always clear demo mode on real login
      loadAtlasAPI().then((AtlasAPI) => {
        AtlasAPI.businesses.list()
          .then((list) => {
            if (list && list.length > 0) {
-             // Returning user — go to dashboard
              setView('dashboard');
+             setBizId(list[0].id); // start on their first real business
            } else {
-             // New user — start onboarding
              setView('onboarding');
            }
          })
          .catch(() => {
-           // API error — still go to onboarding to be safe
            setView('onboarding');
          });
      });
    };
 
   const handleOnboardComplete = (user) => { 
-    if (user) setCurrentUser(user); 
+    if (user) setCurrentUser(user);
+    setIsDemoMode(false);
     setView('dashboard'); 
     setPage('overview'); 
   };
@@ -194,6 +194,19 @@ export default function App() {
   /** @type {ImportMeta & { env: ImportMetaEnv }} */
   const importMeta = import.meta;
   const isDev = importMeta.env?.DEV;
+  // Listen for name updates from the Profile modal
+  useEffect(() => {
+    const handler = (e) => {
+      setCurrentUser(prev => prev ? { ...prev, name: e.detail.name } : prev);
+      try {
+        const cached = sessionStorage.getItem('atlas-user');
+        if (cached) sessionStorage.setItem('atlas-user', JSON.stringify({ ...JSON.parse(cached), name: e.detail.name }));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('atlas:nameUpdated', handler);
+    return () => window.removeEventListener('atlas:nameUpdated', handler);
+  }, []);
+
   const sharpClass = tweaks.sharpEdges ? 'sharp' : '';
   const densityClass = tweaks.density === 'compact' ? 'compact' : '';
   const darkClass = tweaks.theme === 'dark' ? 'dark' : '';
@@ -224,7 +237,7 @@ export default function App() {
               active={page}
               onChange={setPage}
               business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
-              isDemo={isDemoMode || (currentBusiness?.isDemo === true)}
+              isDemo={isDemoMode}
               onSwitch={() => setShowSwitcher(true)}
             user={currentUser}
               onUpgrade={() => setView('pricing')}
@@ -246,6 +259,7 @@ export default function App() {
                 title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings', tasks: 'Tasks', records: 'Records' })[page]}
                 business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
                 user={currentUser}
+                onOpenChat={() => setShowChat(true)}
                 onExit={async () => {
                   try {
                     const AtlasAPI = await loadAtlasAPI();
@@ -284,11 +298,13 @@ export default function App() {
             {showSwitcher && (
               <BusinessSwitcher 
                 current={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} 
-                allBusinessList={[...apiBusinesses.map(b => ({ id: b.id, name: b.name, isDemo: false })), ...ATLAS_BUSINESS_LIST]} 
+                allBusinessList={
+                  // Real users only see their own businesses — never demo ones
+                  apiBusinesses.map(b => ({ id: b.id, name: b.name, category: b.category, location: b.location, isDemo: false }))
+                }
                 onSelect={(id) => {
-                  setIsDemoMode(ATLAS_BUSINESS_LIST.some(b => b.id === id));
+                  setIsDemoMode(false);
                   setBizId(id);
-                  // Optimistically show known data instantly to avoid baker flash
                   if (allBusinesses[id]) setCurrentBusiness(allBusinesses[id]);
                 }} 
                 onClose={() => setShowSwitcher(false)}
