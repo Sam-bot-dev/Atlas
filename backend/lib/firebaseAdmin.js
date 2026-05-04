@@ -10,22 +10,32 @@ const privateKey = rawKey
   .replace(/\\n/g, '\n')    // single-escaped \n
   .replace(/^"|"$/g, '');   // strip surrounding quotes if any
 
+// Diagnostic — shows key shape without exposing the value
+const keyOk = privateKey.includes('-----BEGIN PRIVATE KEY-----') && privateKey.includes('-----END PRIVATE KEY-----');
+console.log('[firebaseAdmin] projectId:', !!projectId, '| clientEmail:', !!clientEmail, '| keyOk:', keyOk, '| rawKeyLen:', rawKey.length);
+
 if (!projectId || !privateKey || !clientEmail) {
   console.warn('[firebaseAdmin] Missing env vars — Firebase auth disabled');
-  console.warn('[firebaseAdmin] projectId:', !!projectId, 'clientEmail:', !!clientEmail, 'privateKey:', !!privateKey);
   module.exports = {
     auth: () => ({
       verifyIdToken: async () => { throw new Error('Firebase not configured — set FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL'); },
     }),
   };
+} else if (!keyOk) {
+  console.error('[firebaseAdmin] Private key is missing PEM headers — check FIREBASE_PRIVATE_KEY on Render');
+  module.exports = {
+    auth: () => ({
+      verifyIdToken: async () => { throw new Error('Firebase private key is malformed — missing PEM headers'); },
+    }),
+  };
 } else {
   try {
-    // Only initialize once (guard against hot-reload double-init)
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({ projectId, privateKey, clientEmail }),
       });
     }
+    console.log('[firebaseAdmin] Initialized successfully');
     module.exports = admin;
   } catch (err) {
     console.error('[firebaseAdmin] Init failed:', err.message);
