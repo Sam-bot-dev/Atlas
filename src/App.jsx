@@ -63,6 +63,11 @@ export default function App() {
 
   const refreshBusiness = useCallback(() => {
     if (view === 'dashboard' && bizId) {
+      // Don't hit the API for demo IDs — they only exist in client-side data
+      if (ATLAS_BUSINESSES[bizId]) {
+        setCurrentBusiness(ATLAS_BUSINESSES[bizId]);
+        return;
+      }
       loadAtlasAPI().then((AtlasAPI) => {
         AtlasAPI.businesses.get(bizId).then((data) => {
           setCurrentBusiness(data);

@@ -207,7 +207,7 @@ React.useEffect(() => {
         // Bug #7 fix: now that we have a real bizId, upload any staged files from step 2
         if (biz?.id && uploads.length > 0) {
           for (const u of uploads) {
-            if (u.file) {
+            if (u.file instanceof File) {
               try { await AtlasAPI.uploads.upload(biz.id, u.file); }
               catch (uploadErr) { console.warn('File upload skipped:', u.name, uploadErr.message); }
             }
