@@ -26,6 +26,10 @@ const isProd = process.env.NODE_ENV === 'production';
 const port = process.env.PORT || 5000;
 const app = express();
 
+// Trust Render's proxy so express-rate-limit can read the real client IP
+// from X-Forwarded-For without throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+if (isProd) app.set('trust proxy', 1);
+
 // Security middleware — Content Security Policy + security headers
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
@@ -189,8 +193,22 @@ const waitForDb = async () => {
 
 const server = app.listen(port, () => {
   console.log(`Atlas backend running on port ${port} [${isProd ? 'production' : 'development'}]`);
-  // Wait for DB to be ready, then seed + recover queued jobs
+  // Wait for DB to be ready, then run migrations + seed + recover queued jobs
   waitForDb().then(async () => {
+    // In production, run migrate deploy programmatically as a safety net
+    // in case the start command's migrate step failed or was skipped.
+    if (isProd) {
+      try {
+        const { execSync } = require('child_process');
+        const migrateResult = execSync(
+          'npx prisma migrate deploy --config prisma.config.js',
+          { cwd: __dirname, env: process.env, stdio: 'pipe' }
+        ).toString();
+        console.log('[startup] Migrations:', migrateResult.trim().split('\n').pop());
+      } catch (err) {
+        console.warn('[startup] migrate deploy warning:', err.stderr?.toString()?.trim() || err.message);
+      }
+    }
     // Run seed in production to ensure demo user + businesses exist.
     // Spawned as a child process so seed's prisma.$disconnect() doesn't
     // kill the shared connection used by the main server.
