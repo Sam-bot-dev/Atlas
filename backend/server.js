@@ -132,6 +132,8 @@ app.use('/api/v1/businesses/:bizId/actions',    require('./middleware/authMiddle
 app.use('/api/v1/businesses/:bizId/automations',require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/automationsRoutes'));
 app.use('/api/v1/businesses/:bizId/uploads',    require('./middleware/authMiddleware').protect, uploadLimiter, require('./routes/uploadsRoutes'));
 app.use('/api/v1/businesses/:bizId/tasks',      require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/taskRoutes'));
+app.use('/api/v1/businesses/:bizId/chat',       require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/chatRoutes'));
+app.use('/api/v1/businesses/:bizId/records',    require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/recordsRoutes'));
 app.use('/api/v1/businesses/:bizId',           require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/businessExtrasRoutes'));
 
 // Health check — includes DB connectivity

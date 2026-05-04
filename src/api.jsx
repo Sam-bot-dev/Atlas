@@ -243,6 +243,16 @@ const AtlasAPI = {
     create: (bizId, { title, description, dueDate }) => post(`/businesses/${bizId}/tasks`, { title, description, dueDate }),
     delete: (bizId, taskId) => del(`/businesses/${bizId}/tasks/${taskId}`),
   },
+  chat: {
+    list: (bizId) => get(`/businesses/${bizId}/chat`),
+    send: (bizId, message) => post(`/businesses/${bizId}/chat`, { message }),
+    clear: (bizId) => del(`/businesses/${bizId}/chat`),
+  },
+  records: {
+    list: (bizId) => get(`/businesses/${bizId}/records`),
+    update: (bizId, type, id, data) => patch(`/businesses/${bizId}/records/${type}/${id}`, data),
+    delete: (bizId, type, id) => del(`/businesses/${bizId}/records/${type}/${id}`),
+  },
   reports: {
     list: (bizId) => get(`/businesses/${bizId}/reports`),
     create: (bizId, type = 'weekly') => post(`/businesses/${bizId}/reports`, { type }),

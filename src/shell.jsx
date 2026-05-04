@@ -9,6 +9,7 @@ const SIDEBAR_ITEMS = [
   { id: 'overview',    label: 'Overview',      icon: 'home'         },
   { id: 'analytics',  label: 'Analytics',     icon: 'chart'        },
   { id: 'sources',    label: 'Data sources',  icon: 'database'     },
+  { id: 'records',    label: 'Records',       icon: 'archive'      },
   { id: 'tasks',      label: 'Tasks',         icon: 'check-square' },
   { id: 'automations',label: 'Automations',   icon: 'zap'          },
   { id: 'reports',    label: 'Reports',       icon: 'file'         },

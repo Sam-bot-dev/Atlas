@@ -243,7 +243,7 @@ export default function App() {
             />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
               <TopBar
-                title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings', tasks: 'Tasks' })[page]}
+                title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings', tasks: 'Tasks', records: 'Records' })[page]}
                 business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
                 user={currentUser}
                 onExit={async () => {

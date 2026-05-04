@@ -1,7 +1,7 @@
 import React from 'react';
 import { Icon, Delta, fmtINR, SectionHeader, SkeletonLine, SkeletonChart } from './ui';
 import { LineChart, BarChart } from './charts';
-import { AtlasAPI } from './api';
+import { AtlasAPI, logError } from './api';
 import { Tasks } from './Tasks';
 import { buildDemoData } from './mockData';
 import { downloadReport as generateAndDownload } from './reportGenerator';
@@ -9,6 +9,8 @@ import { downloadReport as generateAndDownload } from './reportGenerator';
 // Import and re-export the real Automations engine
 import { Automations } from './Automations';
 export { Automations };
+
+export { Records } from './Records';
 
 // Tabbed dashboard pages
 const DEMO_IDS = ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'];
@@ -291,13 +293,156 @@ const buildPreviewLines = (rows, headers) => {
   return lines;
 };
 
+// ── AI Chat Panel ─────────────────────────────────────────────────────────────
+const ChatPanel = ({ business, onClose }) => {
+  const [messages, setMessages] = React.useState([]);
+  const [input, setInput] = React.useState('');
+  const [sending, setSending] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const bottomRef = React.useRef();
+  const inputRef = React.useRef();
+  const isDemo = DEMO_IDS.includes(business?.id) || business?.isDemo;
+
+  React.useEffect(() => {
+    if (isDemo) {
+      setMessages([{ id: 'welcome', role: 'assistant', content: `Hi! I'm Atlas. Tell me about your sales, customers, or inventory in plain language and I'll record it. Try: "Sold 3 chocolate cakes to Priya for ₹1,200 today, she loved it!"`, createdAt: new Date().toISOString() }]);
+      setLoading(false);
+      return;
+    }
+    AtlasAPI.chat.list(business.id)
+      .then(msgs => {
+        const withWelcome = msgs.length === 0
+          ? [{ id: 'welcome', role: 'assistant', content: `Hi! I'm Atlas. Tell me about your business activity in plain language and I'll record it automatically. Try: "Sold 5 units of product X to Rahul for ₹2,500 today"`, createdAt: new Date().toISOString() }]
+          : msgs;
+        setMessages(withWelcome);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [business?.id, isDemo]);
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || sending) return;
+    setInput('');
+    setSending(true);
+
+    const userMsg = { id: `u-${Date.now()}`, role: 'user', content: text, createdAt: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+
+    if (isDemo) {
+      await new Promise(r => setTimeout(r, 800));
+      const demoReply = { id: `a-${Date.now()}`, role: 'assistant', content: `Got it! In a real account, I'd extract and store that data automatically. Create your own business to enable full AI recording.`, createdAt: new Date().toISOString() };
+      setMessages(prev => [...prev, demoReply]);
+      setSending(false);
+      return;
+    }
+
+    try {
+      const res = await AtlasAPI.chat.send(business.id, text);
+      setMessages(prev => [...prev, res.message]);
+    } catch (e) {
+      setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: 'Something went wrong. Try again.', createdAt: new Date().toISOString() }]);
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', right: 24, bottom: 24, width: 380, height: 520, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', zIndex: 200 }}>
+      {/* Header */}
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--ink-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="sparkles" size={15} color="white"/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Atlas Chat</div>
+          <div style={{ fontSize: 11, color: 'var(--positive)' }}>● Records everything you say</div>
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {!isDemo && messages.length > 1 && (
+            <button className="btn btn-ghost btn-sm" style={{ padding: 4, fontSize: 10 }} onClick={async () => { await AtlasAPI.chat.clear(business.id); setMessages([{ id: 'welcome', role: 'assistant', content: 'Chat cleared. Start fresh!', createdAt: new Date().toISOString() }]); }}>
+              Clear
+            </button>
+          )}
+          <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={onClose}>
+            <Icon name="x" size={14}/>
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
+            <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--ink-1)', animation: 'spin 600ms linear infinite' }}/>
+          </div>
+        ) : messages.map(m => (
+          <div key={m.id} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{
+              maxWidth: '80%', padding: '9px 13px', borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+              background: m.role === 'user' ? 'var(--ink-1)' : 'var(--bg-subtle)',
+              color: m.role === 'user' ? 'white' : 'var(--ink-1)',
+              fontSize: 13, lineHeight: 1.5,
+            }}>
+              {m.content}
+              {m.extracted && (() => {
+                try {
+                  const ex = typeof m.extracted === 'string' ? JSON.parse(m.extracted) : m.extracted;
+                  const total = Object.values(ex).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
+                  if (total > 0) return (
+                    <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.2)', fontSize: 10, opacity: 0.8 }}>
+                      ✓ Recorded {total} item{total > 1 ? 's' : ''}
+                    </div>
+                  );
+                } catch { return null; }
+                return null;
+              })()}
+            </div>
+          </div>
+        ))}
+        {sending && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ padding: '9px 13px', borderRadius: '14px 14px 14px 4px', background: 'var(--bg-subtle)', display: 'flex', gap: 4, alignItems: 'center' }}>
+              {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-3)', animation: `bounce 1s ${i * 0.15}s infinite` }}/>)}
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
+        <input
+          ref={inputRef}
+          className="input"
+          style={{ flex: 1, fontSize: 13 }}
+          placeholder="Tell me about a sale, customer, review…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+          disabled={sending}
+        />
+        <button className="btn btn-primary btn-sm" onClick={send} disabled={sending || !input.trim()} style={{ padding: '0 12px' }}>
+          <Icon name="arrow-right" size={14}/>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const DataSources = ({ business }) => {
   const isDemo = DEMO_IDS.includes(business?.id) || business?.isDemo;
   const [dragOver, setDragOver] = React.useState(false);
-  const [phase, setPhase] = React.useState('idle'); // idle | reading | parsing | done | error
+  const [phase, setPhase] = React.useState('idle');
   const [phaseMsg, setPhaseMsg] = React.useState('');
   const [uploads, setUploads] = React.useState([]);
   const [extractResult, setExtractResult] = React.useState(null);
+  const [showChat, setShowChat] = React.useState(false);
   const fileInputRef = React.useRef(null);
 
   const [sources, setSources] = React.useState([
@@ -472,7 +617,14 @@ export const DataSources = ({ business }) => {
 
   return (
     <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
-      <SectionHeader eyebrow="Inputs" title="Data sources" subtitle="Connect sources for insights. Revenue from Square POS, sentiment from Google Business."/>
+      <SectionHeader eyebrow="Inputs" title="Data sources" subtitle="Connect sources for insights. Revenue from Square POS, sentiment from Google Business."
+        action={
+          <button className="btn btn-primary btn-sm" onClick={() => setShowChat(p => !p)}>
+            <Icon name="message" size={13}/> Chat with Atlas
+          </button>
+        }
+      />
+      {showChat && <ChatPanel business={business} onClose={() => setShowChat(false)}/>}
 
       {/* Drop zone */}
       <div
@@ -965,6 +1117,7 @@ export const Pages = ({ business, onRefresh, initialTab }) => {
   const pageComponents = {
     analytics: Analytics,
     sources: DataSources,
+    records: Records,
     tasks: Tasks,
     automations: Automations,
     reports: Reports,
