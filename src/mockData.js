@@ -64,6 +64,13 @@ export function buildDemoData(business, period) {
   // Delta compression: short windows show less volatility
   const deltaFactor = days <= 7 ? 0.3 : days <= 30 ? 0.7 : days <= 90 ? 0.9 : 1.0;
 
+  // Seeded pseudo-random for consistent but varying values per period
+  const seed = (business.id || 'biz').split('').reduce((s, c) => s + c.charCodeAt(0), 0) + days;
+  const pseudoRandom = (offset = 0) => {
+    const x = Math.sin(seed + offset) * 10000;
+    return x - Math.floor(x);
+  };
+
   for (const [key, m] of Object.entries(baseMetrics)) {
     let value = m.value ?? 0;
     let delta = m.delta ?? 0;
@@ -72,19 +79,33 @@ export function buildDemoData(business, period) {
       value = Math.round(baseRevenue * revFactor);
       delta = r2(delta * deltaFactor);
     } else if (key === 'orders') {
-      // Scale orders proportionally to revenue
-      value = Math.round(value * Math.min(revFactor, 1.5));
+      // Scale orders proportionally to revenue with some natural variance
+      const orderVariance = 0.95 + pseudoRandom(1) * 0.1;
+      value = Math.round(value * Math.min(revFactor, 1.5) * orderVariance);
       delta = r2(delta * deltaFactor);
     } else if (key === 'conversion') {
       const adj = days <= 7 ? 0.3 : days >= 180 ? -0.4 : 0;
-      value = r2(Math.max(0.5, Math.min(12, value + adj)));
+      const convVariance = 0.98 + pseudoRandom(2) * 0.04;
+      value = r2(Math.max(0.5, Math.min(12, (value + adj) * convVariance)));
       delta = r2(delta * deltaFactor * 0.6);
-    } else if (key === 'inventory' || key === 'sentiment') {
-      value = r2(value);
-      delta = 0;
-    } else if (key === 'retention') {
-      value = r2(value);
+    } else if (key === 'inventory') {
+      // Inventory health varies with period length - longer periods = more stable view
+      const invVariance = 0.97 + pseudoRandom(3) * 0.06;
+      const periodAdj = days <= 30 ? 2 : days <= 90 ? -1 : days <= 180 ? -2 : -3;
+      value = r2(Math.max(50, Math.min(100, (value + periodAdj) * invVariance)));
+      delta = r2(delta * deltaFactor * 0.5);
+    } else if (key === 'sentiment') {
+      // Review sentiment drifts slightly with period
+      const sentVariance = 0.99 + pseudoRandom(4) * 0.02;
+      const periodAdj = days <= 30 ? 0.1 : days <= 90 ? -0.05 : days <= 180 ? -0.1 : -0.15;
+      value = r2(Math.max(3.0, Math.min(5.0, (value + periodAdj) * sentVariance)));
       delta = r2(delta * deltaFactor * 0.4);
+    } else if (key === 'retention') {
+      // Repeat customers / retention drifts with period
+      const retVariance = 0.98 + pseudoRandom(5) * 0.04;
+      const periodAdj = days <= 30 ? 1 : days <= 90 ? -0.5 : days <= 180 ? -1.5 : -2.5;
+      value = r2(Math.max(20, Math.min(95, (value + periodAdj) * retVariance)));
+      delta = r2(delta * deltaFactor * 0.6);
     } else {
       delta = r2(delta * deltaFactor);
     }
