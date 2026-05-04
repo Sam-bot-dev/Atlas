@@ -28,29 +28,37 @@ export function buildDemoData(business, period) {
   // Delta compresses for very short windows (less volatility visible)
   const deltaFactor = days <= 7 ? 0.35 : days <= 30 ? 0.7 : 1.0;
 
+  // Safe rounding helper — avoids IEEE 754 float garbage like 3.8000000000000003
+  const r2 = (n) => Math.round(n * 100) / 100;
+
   // --- Metrics ---
   const baseMetrics = business.metrics || {};
   const metrics = {};
   for (const [key, m] of Object.entries(baseMetrics)) {
-    let value = m.value;
-    let delta = m.delta;
+    let value = m.value ?? 0;
+    let delta = m.delta ?? 0;
 
     if (key === 'revenue') {
-      value = Math.round(m.value * revFactor);
-      delta = Math.round(m.delta * deltaFactor * 10) / 10;
+      value = Math.round(value * revFactor);
+      delta = r2(delta * deltaFactor);
     } else if (key === 'orders') {
-      value = Math.round(m.value * ordFactor);
-      delta = Math.round(m.delta * deltaFactor * 10) / 10;
+      value = Math.round(value * ordFactor);
+      delta = r2(delta * deltaFactor);
     } else if (key === 'conversion') {
-      value = Math.max(0.5, Math.min(12, m.value + (days <= 7 ? 0.3 : days >= 180 ? -0.4 : 0)));
-      delta = Math.round(m.delta * deltaFactor * 0.6 * 10) / 10;
+      // Clamp and round to 2dp to prevent float precision bleed
+      const adj = days <= 7 ? 0.3 : days >= 180 ? -0.4 : 0;
+      value = r2(Math.max(0.5, Math.min(12, value + adj)));
+      delta = r2(delta * deltaFactor * 0.6);
     } else if (key === 'inventory' || key === 'sentiment') {
-      // Inventory and sentiment stay stable regardless of period
-      value = m.value;
+      // Stable regardless of period — no scaling
+      value = r2(value);
       delta = 0;
     } else if (key === 'retention') {
-      value = m.value;
-      delta = Math.round(m.delta * deltaFactor * 0.4 * 10) / 10;
+      value = r2(value);
+      delta = r2(delta * deltaFactor * 0.4);
+    } else {
+      // Any other metric: round delta only
+      delta = r2(delta * deltaFactor);
     }
 
     const periodLabel = days <= 7 ? 'this week' : days <= 30 ? 'this month' : 'vs last period';
@@ -58,8 +66,6 @@ export function buildDemoData(business, period) {
   }
 
   // --- Series ---
-  // Slice the stored monthly series to match the selected period window.
-  // All demo series have 7 monthly data points (Nov–May).
   const full     = business.revenueSeries  || [];
   const custFull = business.customerGrowth || [];
   const ordFull  = business.ordersSeries   || [];

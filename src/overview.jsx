@@ -16,7 +16,14 @@ const MetricTile = ({ m, loading, tooltip }) => {
   if (loading) return <SkeletonMetricTile />;
 
   const isCurrency = m.unit === '₹';
-  const value = isCurrency ? fmtINR(m.value) : m.unit ? `${m.value}${m.unit}` : (m.value || 0).toLocaleString('en-IN');
+  // Guard against NaN/Infinity from float arithmetic before rendering
+  const safeValue = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
+  const displayVal = safeValue(m.value);
+  const value = isCurrency
+    ? fmtINR(displayVal)
+    : m.unit
+      ? `${displayVal}${m.unit}`
+      : displayVal.toLocaleString('en-IN');
   return (
     <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 110, position: 'relative' }} title={tooltip}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -30,7 +37,7 @@ const MetricTile = ({ m, loading, tooltip }) => {
         {value}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-        <Delta value={m.delta} suffix={m.label.toLowerCase().includes('rate') || m.label.toLowerCase().includes('retention') || m.unit === '%' ? 'pp' : '%'}/>
+        <Delta value={safeValue(m.delta)} suffix={m.label.toLowerCase().includes('rate') || m.label.toLowerCase().includes('retention') || m.unit === '%' ? 'pp' : '%'}/>
         {m.period && <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>{m.period}</span>}
       </div>
     </div>
