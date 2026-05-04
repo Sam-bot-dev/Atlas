@@ -118,8 +118,17 @@ export const Automations = ({ business }) => {
     if (!business?.id) { setLoading(false); return; }
 
     if (isDemo) {
-      setAutos(business.automations || []);
-      setSuggested(business.suggestedAutomations || []);
+      // Demo businesses don't have automations in the client-side data object.
+      // Provide sensible defaults so the UI isn't empty.
+      setAutos(business.automations?.length ? business.automations : [
+        { id: 'demo-auto-1', trigger: 'Low inventory detected', actionType: 'email_alert', status: 'active', payload: '{}' },
+        { id: 'demo-auto-2', trigger: 'Negative review received', actionType: 'create_task', status: 'active', payload: '{}' },
+        { id: 'demo-auto-3', trigger: 'Revenue drops 15% week-on-week', actionType: 'email_alert', status: 'disabled', payload: '{}' },
+      ]);
+      setSuggested(business.suggestedAutomations || [
+        { trigger: 'New order placed', action: 'send_whatsapp_confirmation', title: 'WhatsApp order confirmation' },
+        { trigger: 'Customer inactive 30 days', action: 'send_reengagement_offer', title: 'Re-engagement offer' },
+      ]);
       setLogs(automationLogs.get(business.id));
       setLoading(false);
       return;
