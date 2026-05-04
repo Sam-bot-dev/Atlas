@@ -10,7 +10,8 @@ import { downloadReport as generateAndDownload } from './reportGenerator';
 import { Automations } from './Automations';
 export { Automations };
 
-export { Records } from './Records';
+import { Records } from './Records';
+export { Records };
 
 // Tabbed dashboard pages
 const DEMO_IDS = ['baker', 'retail', 'pharmacy', 'cafe', 'trade', 'service'];
