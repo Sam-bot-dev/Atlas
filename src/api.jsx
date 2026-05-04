@@ -196,6 +196,8 @@ const AtlasAPI = {
     list: (bizId) => get(`/businesses/${bizId}/insights`),
     explain: (bizId, insightId) => get(`/businesses/${bizId}/insights/${insightId}/explain`),
     ask: (bizId, query) => post(`/businesses/${bizId}/ask`, { query }),
+    // Public ask — sends full business context, works for demo + real businesses
+    askWithContext: (query, business) => post('/ask', { query, business }),
   },
   actions: {
     list: (bizId) => get(`/businesses/${bizId}/actions`),
@@ -209,6 +211,7 @@ const AtlasAPI = {
     create: (bizId, { trigger, action }) => post(`/businesses/${bizId}/automations`, { trigger, action }),
     delete: (bizId, autoId) => del(`/businesses/${bizId}/automations/${autoId}`),
     suggested: (bizId) => get(`/businesses/${bizId}/automations/suggested`),
+    run: (bizId) => post(`/businesses/${bizId}/automations/run`, {}),
   },
   tasks: {
     list: (bizId) => get(`/businesses/${bizId}/tasks`),

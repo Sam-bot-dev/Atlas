@@ -8,6 +8,7 @@ import { AtlasAPI } from './api';
 const SIDEBAR_ITEMS = [
   { id: 'overview', label: 'Overview', icon: 'home' },
   { id: 'analytics', label: 'Analytics', icon: 'chart' },
+  { id: 'tasks', label: 'Tasks', icon: 'check-square' },
   { id: 'sources', label: 'Data sources', icon: 'database' },
   { id: 'automations', label: 'Automations', icon: 'zap' },
   { id: 'reports', label: 'Reports', icon: 'file' },
@@ -95,8 +96,59 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo, 
 export const TopBar = ({ title, business, user, onExit = null }) => {
   const [open, setOpen] = React.useState(false);
   const [askOpen, setAskOpen] = React.useState(false);
+  const [notifOpen, setNotifOpen] = React.useState(false);
   const userName = user?.name || business?.owner || 'Owner';
   const initials = userName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'AT';
+
+  // Demo businesses get contextual notifications based on their data
+  const DEMO_NOTIFICATIONS = {
+    baker: [
+      { message: "3 new orders received — 2 custom cakes, 1 hamper", time: "2m ago" },
+      { message: "Ingredient stock alert: butter below 5-day threshold", time: "1h ago" },
+      { message: "New 5★ review on Google: 'Best birthday cake in Pune!'", time: "3h ago" },
+    ],
+    retail: [
+      { message: "B2B reorder due: Riya Boutique (22-day cadence)", time: "30m ago" },
+      { message: "18 polyester SKUs flagged for markdown review", time: "2h ago" },
+      { message: "Revenue 20% below forecast today — offer drafted", time: "4h ago" },
+    ],
+    pharmacy: [
+      { message: "14 refill reminders sent via WhatsApp", time: "1h ago" },
+      { message: "Schedule H stock: Alprazolam below reorder level", time: "3h ago" },
+      { message: "Monsoon stock PO auto-generated for review", time: "Yesterday" },
+    ],
+    cafe: [
+      { message: "Loyalty voucher sent to 8 inactive members", time: "45m ago" },
+      { message: "Daily milk pull: 23L — standing order updated", time: "6h ago" },
+      { message: "New Swiggy review (3★) — reply drafted for approval", time: "Yesterday" },
+    ],
+    trade: [
+      { message: "Shipment #SH-2847 delayed 52h — client notified", time: "1h ago" },
+      { message: "USD/INR moved 1.8% — hedging recommendation ready", time: "3h ago" },
+      { message: "GST filing due in 5 days — accounts team notified", time: "Yesterday" },
+    ],
+    service: [
+      { message: "Quote follow-up sent to 3 leads (7-day cadence)", time: "2h ago" },
+      { message: "Project #P-14 complete — review request sent", time: "4h ago" },
+      { message: "Crew utilisation at 94% — hiring alert triggered", time: "Yesterday" },
+    ],
+  };
+
+  const notifications = user?.notifications?.length
+    ? user.notifications
+    : (DEMO_NOTIFICATIONS[business?.id] || []);
+
+  // Wire up ⌘K / Ctrl+K shortcut
+  React.useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setAskOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
   return (
     <div style={{
       height: 56, padding: '0 24px',
@@ -117,10 +169,32 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
           Ask Atlas…
           <span className="mono" style={{ padding: '1px 5px', borderRadius: 3, background: 'var(--bg-elevated)', border: '1px solid var(--border)', fontSize: 10, marginLeft: 8 }}>⌘K</span>
         </button>
-<button className="btn btn-ghost btn-sm" style={{ position: 'relative' }}>
+<button className="btn btn-ghost btn-sm" style={{ position: 'relative' }} onClick={() => setNotifOpen(p => !p)}>
            <Icon name="bell" size={15}/>
-           {user?.notifications?.length > 0 && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>}
+           {notifications.length > 0 && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>}
          </button>
+         {notifOpen && (
+           <div
+             style={{ position: 'absolute', top: 56, right: 80, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 260, maxWidth: 320, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
+             onMouseLeave={() => setNotifOpen(false)}
+           >
+             <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Notifications</div>
+             {notifications.length === 0 ? (
+               <div style={{ padding: '16px 12px', fontSize: 13, color: 'var(--ink-4)', textAlign: 'center' }}>You're all caught up.</div>
+             ) : (
+               notifications.slice(0, 5).map((n, i) => (
+                 <div key={i}
+                   style={{ padding: '8px 12px', borderRadius: 6, cursor: 'default' }}
+                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                 >
+                   <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.4 }}>{n.message || n.title || String(n)}</div>
+                   {n.time && <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{n.time}</div>}
+                 </div>
+               ))
+             )}
+           </div>
+         )}
         <div style={{ width: 1, height: 22, background: 'var(--border)' }}/>
         <button onClick={() => setOpen(!open)} style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px',
@@ -173,6 +247,7 @@ const AskAtlas = ({ onClose, business }) => {
   const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [answer, setAnswer] = React.useState(null);
+  const [error, setError] = React.useState(null);
 
   const samplesByType = {
     'Home Baker': ['Why was last Saturday slower?', 'What should I do about cinnamon roll margins?', 'Show me my best customers'],
@@ -182,25 +257,44 @@ const AskAtlas = ({ onClose, business }) => {
     'Import/Export': ['Why is on-time rate dropping?', 'Which clients are at churn risk?', 'What is the FX impact this quarter?'],
     'Service Business': ['Why did revenue jump in March?', 'Which jobs have the best margin?', 'When should I hire another crew member?'],
   };
-   const samples = samplesByType[business?.category] || samplesByType['Home Baker'];
+  const samples = samplesByType[business?.category] || samplesByType['Home Baker'];
 
-  const handleAsk = (query) => {
-    if (!query.trim()) return;
+  // Close on Escape
+  React.useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleAsk = async (query) => {
+    if (!query.trim() || loading) return;
     setLoading(true);
     setAnswer(null);
-    AtlasAPI.insights.ask(business.id, query)
-      .then(r => { setLoading(false); setAnswer(r.answer || r.text || 'Response received.'); })
-      .catch(() => { setLoading(false); setAnswer('Error generating reasoning insight. Please try again.'); });
+    setError(null);
+    try {
+      // Send full business context to the backend — works for both demo and real accounts
+      const res = await AtlasAPI.insights.askWithContext(query, business);
+      setAnswer(res.answer || 'No response generated.');
+    } catch (e) {
+      setError('Could not reach the AI. Check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }} onClick={onClose}>
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }}
+      onClick={onClose}
+    >
       <div className="card fade-in" style={{ width: 560, padding: 0, boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="sparkles" size={16}/>
           <input
-            autoFocus className="input"
+            autoFocus
+            className="input"
             style={{ border: 'none', padding: 0, fontSize: 14, flex: 1 }}
-            placeholder={'Ask anything about ' + business.name + '...'}
+            placeholder={`Ask anything about ${business?.name}…`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAsk(q)}
@@ -210,15 +304,19 @@ const AskAtlas = ({ onClose, business }) => {
             : <span className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>esc</span>
           }
         </div>
-        {answer && (
-          <div className="fade-in" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55, background: 'var(--bg-subtle)' }}>
-            {answer}
+
+        {(answer || error) && (
+          <div className="fade-in" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 13, lineHeight: 1.6, background: 'var(--bg-subtle)', color: error ? 'var(--negative)' : 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
+            {error || answer}
           </div>
         )}
+
         <div style={{ padding: 8 }}>
           <div className="eyebrow" style={{ padding: '8px 10px' }}>Suggested</div>
           {samples.map((s, i) => (
-            <div key={i} style={{ padding: '8px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+            <div
+              key={i}
+              style={{ padding: '8px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               onClick={() => { setQ(s); handleAsk(s); }}

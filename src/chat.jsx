@@ -2,16 +2,35 @@ import React from 'react';
 import { Icon } from './ui';
 import { AtlasAPI } from './api';
 
+// Per-business chat history — survives panel close/reopen within the session
+const chatHistory = {};
+
 export const ChatPanel = ({ business, onClose }) => {
-  // Fix #22: initialize to empty; useEffect populates after mount so no double-render
-  const [messages, setMessages] = React.useState([]);
+  const bizKey = business?.id || 'default';
+  const [messages, setMessages] = React.useState(() => {
+    if (chatHistory[bizKey]) return chatHistory[bizKey];
+    return [{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }];
+  });
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const scrollRef = React.useRef(null);
+  const inputRef = React.useRef(null);
 
+  // Reset when switching businesses
   React.useEffect(() => {
-    setMessages([{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }]);
-  }, [business.id, business.name]);
+    if (chatHistory[bizKey]) {
+      setMessages(chatHistory[bizKey]);
+    } else {
+      const welcome = [{ role: 'assistant', content: `Hello! I'm Atlas. I've analyzed **${business.name}**. What would you like to know?`, timestamp: new Date() }];
+      setMessages(welcome);
+      chatHistory[bizKey] = welcome;
+    }
+  }, [bizKey, business.name]);
+
+  // Persist messages to session cache
+  React.useEffect(() => {
+    chatHistory[bizKey] = messages;
+  }, [messages, bizKey]);
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -19,36 +38,56 @@ export const ChatPanel = ({ business, onClose }) => {
     }
   }, [messages, loading]);
 
-  const handleSend = async (e) => {
-    if (e) e.preventDefault();
-    if (!query.trim() || loading) return;
+  // Auto-focus input on open
+  React.useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
 
-    const userMsg = { role: 'user', content: query, timestamp: new Date() };
+  const handleSend = async (text) => {
+    const q = (text || query).trim();
+    if (!q || loading) return;
+
+    const userMsg = { role: 'user', content: q, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setQuery('');
     setLoading(true);
 
     try {
-      // Fix #10: ask() takes a plain string query, not a nested object
-      const res = await AtlasAPI.insights.ask(business.id, query);
+      const res = await AtlasAPI.insights.askWithContext(q, business);
       setMessages(prev => [...prev, {
-        role: 'assistant', 
-        content: res.answer, 
+        role: 'assistant',
+        content: res.answer,
         evidence: res.evidence,
-        timestamp: new Date() 
+        timestamp: new Date()
       }]);
-     } catch (err) {
-       // Use the error in a harmless way to satisfy linter
-       void err;
-       setMessages(prev => [...prev, { 
-         role: 'assistant', 
-         content: "I'm having trouble connecting to my brain right now. Please try again in a moment.", 
-         timestamp: new Date() 
-       }]);
-     } finally {
-       setLoading(false);
-     };
+    } catch (err) {
+      void err;
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "I'm having trouble connecting right now. Please try again in a moment.",
+        timestamp: new Date()
+      }]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleSend(query);
+  };
+
+  // Suggested questions per business type
+  const suggestions = {
+    'Home Baker': ['What drove revenue this week?', 'Which product has the best margin?', 'When are my busiest hours?'],
+    'Retail Shop': ['Which SKUs should I reorder?', 'Why did foot traffic drop?', 'What is my best-selling category?'],
+    'Pharmacy': ['Which refills are due this week?', 'What is my inventory health?', 'How is customer retention?'],
+    'Cafe': ['What is my peak hour today?', 'How can I reduce milk waste?', 'Which items drive repeat visits?'],
+    'Import/Export': ['Which shipments are at risk?', 'What is my on-time delivery rate?', 'Which clients need follow-up?'],
+    'Service Business': ['Which jobs have the best margin?', 'How many leads are active?', 'What is my conversion rate?'],
+  };
+  const quickQuestions = suggestions[business?.category] || suggestions['Home Baker'];
+  const showSuggestions = messages.length <= 1;
 
   return (
     <div className="fade-in" style={{
@@ -91,7 +130,6 @@ export const ChatPanel = ({ business, onClose }) => {
                   )}
                 </p>
               ))}
-              
               {m.evidence && m.evidence.length > 0 && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {m.evidence.map((e, ei) => (
@@ -105,6 +143,29 @@ export const ChatPanel = ({ business, onClose }) => {
             </div>
           </div>
         ))}
+
+        {/* Quick suggestions — only shown before first user message */}
+        {showSuggestions && !loading && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+            {quickQuestions.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => handleSend(q)}
+                style={{
+                  textAlign: 'left', padding: '8px 12px', borderRadius: 8, fontSize: 13,
+                  background: 'var(--bg-subtle)', border: '1px solid var(--border)',
+                  cursor: 'pointer', color: 'var(--ink-2)',
+                  transition: 'background 120ms',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-subtle)'}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading && (
           <div style={{ alignSelf: 'flex-start', background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: 12, borderBottomLeftRadius: 2 }}>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -117,22 +178,24 @@ export const ChatPanel = ({ business, onClose }) => {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} style={{ padding: 20, borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+      <form onSubmit={handleSubmit} style={{ padding: 20, borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
         <div style={{ position: 'relative' }}>
-          <input 
-            className="input" 
-            placeholder="Ask about revenue, staff, or strategy..." 
+          <input
+            ref={inputRef}
+            className="input"
+            placeholder={`Ask about ${business?.name || 'your business'}…`}
             style={{ paddingRight: 48, borderRadius: 12, height: 44, background: 'var(--bg-elevated)' }}
             value={query}
             onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmit(e)}
             disabled={loading}
           />
           <button type="submit" className="btn btn-primary" style={{ position: 'absolute', right: 6, top: 6, bottom: 6, padding: 8, borderRadius: 8 }} disabled={!query.trim() || loading}>
             <Icon name="arrow-up" size={16}/>
           </button>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', marginTop: 12 }}>
-          Atlas AI can make mistakes. Check important info.
+        <div style={{ fontSize: 10, color: 'var(--ink-4)', textAlign: 'center', marginTop: 8 }}>
+          Atlas AI · responses may not always be accurate
         </div>
       </form>
     </div>

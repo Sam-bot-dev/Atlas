@@ -193,14 +193,9 @@ export default function App() {
   const densityClass = tweaks.density === 'compact' ? 'compact' : '';
   const darkClass = tweaks.theme === 'dark' ? 'dark' : '';
 
-  // Keyboard shortcut for chat
+  // Keyboard shortcut — Ctrl/Cmd+Shift+T opens the theme/density panel
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowChat(true);
-      }
-      // Fix #107: Ctrl/Cmd+Shift+T opens the theme/density panel in all builds
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'T') {
         e.preventDefault();
         setShowTweaks(prev => !prev);
@@ -243,7 +238,7 @@ export default function App() {
             />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
               <TopBar
-                title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings' })[page]}
+                title={({ overview: 'Overview', analytics: 'Analytics', sources: 'Data sources', automations: 'Automations', reports: 'Reports', settings: 'Settings', tasks: 'Tasks' })[page]}
                 business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']}
                 user={currentUser}
                 onExit={async () => {
@@ -264,9 +259,9 @@ export default function App() {
                   business failed to load — show a null-safe placeholder instead */}
               {page === 'overview'
                 ? (currentBusiness || ATLAS_BUSINESSES[bizId])
-                  ? <Overview business={currentBusiness || ATLAS_BUSINESSES[bizId]} />
+                  ? <Overview business={currentBusiness || ATLAS_BUSINESSES[bizId]} onNavigate={setPage} />
                   : <div style={{ padding: 64, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
-                : <Pages business={currentBusiness || ATLAS_BUSINESSES[bizId] || null} onRefresh={refreshBusiness} initialTab={page} key={bizId + page}/>
+                : <Pages business={currentBusiness || ATLAS_BUSINESSES[bizId] || null} onRefresh={refreshBusiness} initialTab={page} key={bizId}/>
                 }
               </div>
               {/* Chat Trigger FAB */}
@@ -319,6 +314,7 @@ export default function App() {
                   <TweakSelect label="Dashboard page" value={page} onChange={setPage} options={[
                     { value: 'overview', label: 'Overview' },
                     { value: 'analytics', label: 'Analytics' },
+                    { value: 'tasks', label: 'Tasks' },
                     { value: 'sources', label: 'Data sources' },
                     { value: 'automations', label: 'Automations' },
                     { value: 'reports', label: 'Reports' },

@@ -29,11 +29,17 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
 
   if (!data || data.length === 0) return <div ref={ref} style={{ width: '100%', height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)', fontSize: 12 }}>No data</div>;
 
-  const ys = data.map(d => d[yKey]).filter(Boolean);
+  const ys = data.map(d => d[yKey]).filter(v => v != null && !isNaN(v));
   let minY = 0, maxY = 1, range = 1;
   if (ys.length > 0) {
-    minY = Math.min(...ys, 0);
-    maxY = Math.max(...ys);
+    const dataMin = Math.min(...ys);
+    const dataMax = Math.max(...ys);
+    const dataRange = dataMax - dataMin || dataMax * 0.1 || 1;
+    // Smart baseline: pad 15% below min so variation fills the chart.
+    // Only anchor to 0 if the data actually crosses or touches 0.
+    const pad = dataRange * 0.15;
+    minY = dataMin > 0 ? Math.max(0, dataMin - pad) : dataMin - pad;
+    maxY = dataMax + pad * 0.5;
     range = maxY - minY || 1;
   }
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;

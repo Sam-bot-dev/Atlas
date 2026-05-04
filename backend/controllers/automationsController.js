@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const { prisma } = require('../lib/prisma');
-const { createAutomation, getSuggestedAutomations } = require('../services/automationService');
+const { createAutomation, getSuggestedAutomations, evaluateAutomations } = require('../services/automationService');
 
 const listAutomations = asyncHandler(async (req, res) => {
   const business = await prisma.business.findFirst({
@@ -77,10 +77,62 @@ const suggestedAutomations = asyncHandler(async (req, res) => {
   res.json(await getSuggestedAutomations(req.params.bizId));
 });
 
+/**
+ * POST /businesses/:bizId/automations/run
+ * Evaluates all active automations for the business and returns an execution log.
+ */
+const runAutomations = asyncHandler(async (req, res) => {
+  const business = await prisma.business.findFirst({
+    where: { id: req.params.bizId, userId: req.user.id },
+  });
+  if (!business) { res.status(404); throw new Error('Business not found'); }
+
+  // Get all active automations
+  const automations = await prisma.automation.findMany({
+    where: { businessId: req.params.bizId, status: 'active' },
+  });
+
+  const executionLog = [];
+
+  for (const auto of automations) {
+    try {
+      // evaluateAutomations fires the actual side-effects (email, webhook, task)
+      await evaluateAutomations(req.params.bizId, auto.trigger, { manual: true, triggeredBy: req.user.id });
+
+      // Update lastRunAt
+      await prisma.automation.update({
+        where: { id: auto.id },
+        data: { lastRunAt: new Date() },
+      });
+
+      executionLog.push({
+        automationId: auto.id,
+        trigger: auto.trigger,
+        action: auto.actionType,
+        status: 'executed',
+        result: `${auto.actionType} triggered for: ${auto.trigger}`,
+        ts: new Date().toISOString(),
+      });
+    } catch (err) {
+      executionLog.push({
+        automationId: auto.id,
+        trigger: auto.trigger,
+        action: auto.actionType,
+        status: 'error',
+        result: err.message || 'Execution failed',
+        ts: new Date().toISOString(),
+      });
+    }
+  }
+
+  res.json({ ran: executionLog.length, log: executionLog });
+});
+
 module.exports = {
   listAutomations,
   toggleAutomation,
   addAutomation,
   deleteAutomation,
   suggestedAutomations,
+  runAutomations,
 };

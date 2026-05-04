@@ -85,11 +85,17 @@ const readImageWithVision = async (filePath) => {
     return {
       rawText: '',
       rows: [],
-      warning: 'GOOGLE_VISION_API_KEY missing. Image OCR skipped.',
+      warning: 'GOOGLE_VISION_API_KEY not configured. Image OCR skipped. Add it to backend/.env to enable receipt and invoice scanning.',
     };
   }
 
-  const content = (await fs.readFile(filePath)).toString('base64');
+  let content;
+  try {
+    content = (await fs.readFile(filePath)).toString('base64');
+  } catch (err) {
+    return { rawText: '', rows: [], warning: `Could not read image file: ${err.message}` };
+  }
+
   const res = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -97,20 +103,56 @@ const readImageWithVision = async (filePath) => {
       requests: [
         {
           image: { content },
-          features: [{ type: 'TEXT_DETECTION' }],
+          features: [
+            // DOCUMENT_TEXT_DETECTION is optimised for dense text like receipts/invoices
+            // It outperforms TEXT_DETECTION on structured documents
+            { type: 'DOCUMENT_TEXT_DETECTION' },
+          ],
+          imageContext: {
+            languageHints: ['en', 'hi'], // English + Hindi for Indian receipts
+          },
         },
       ],
     }),
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Google Vision OCR failed: ${body.slice(0, 240)}`);
+    const body = await res.text().catch(() => res.statusText);
+    // 400 = bad image, 403 = key issue, 429 = quota
+    const hint = res.status === 403
+      ? ' Check that the Vision API is enabled in your Google Cloud project.'
+      : res.status === 429
+      ? ' Vision API quota exceeded — try again later.'
+      : '';
+    throw new Error(`Google Vision OCR failed (${res.status}): ${body.slice(0, 200)}${hint}`);
   }
 
   const data = await res.json();
+
+  // Check for per-request errors (Vision returns 200 even on partial failures)
+  const visionError = data.responses?.[0]?.error;
+  if (visionError) {
+    throw new Error(`Vision API error ${visionError.code}: ${visionError.message}`);
+  }
+
   const rawText = data.responses?.[0]?.fullTextAnnotation?.text || '';
-  return { rawText, rows: [] };
+
+  if (!rawText.trim()) {
+    return {
+      rawText: '',
+      rows: [],
+      warning: 'Vision API returned no text. The image may be too blurry, low-contrast, or contain no readable text.',
+    };
+  }
+
+  // Clean up common OCR artefacts before passing to the LLM extractor
+  const cleaned = rawText
+    .replace(/\f/g, '\n')           // form feeds → newlines
+    .replace(/[ \t]{3,}/g, '  ')    // collapse excessive whitespace
+    .replace(/\n{3,}/g, '\n\n')     // collapse excessive blank lines
+    .trim();
+
+  return { rawText: cleaned, rows: [] };
 };
 
 const extractRawContent = async (job) => {

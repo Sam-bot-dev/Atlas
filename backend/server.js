@@ -27,10 +27,10 @@ const app = express();
 // Security middleware — Content Security Policy
 app.use((req, res, next) => {
   // Fix #105: Add CSP header to prevent XSS and data injection
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.groq.com; frame-src 'self';"
-  );
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: fonts.gstatic.com; connect-src 'self' https://api.groq.com; frame-src 'self';"
+    );
   next();
 });
 
@@ -94,6 +94,9 @@ app.use('/api/v1/businesses/:bizId',           require('./middleware/authMiddlew
 app.get('/api/v1/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Public ask endpoint — accepts business context in body, calls Groq, no auth required
+app.use('/api/v1/ask', require('./routes/askRoutes'));
 
 app.get('/api/v1/metrics/template', (req, res) => {
   const templatePath = path.join(__dirname, '..', 'public', 'metrics-template.csv');

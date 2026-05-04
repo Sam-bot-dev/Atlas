@@ -166,8 +166,11 @@ React.useEffect(() => {
         AtlasAPI.businesses.detect(bizName, bizAddr).then((data) => {
           setDetecting(false);
           setDetectDone(true);
-          setDetectResult(data); // Fix #46/#47: store full result including detectedVia
-          if (data && data.category) setBizType(data.category);
+          setDetectResult(data);
+          // Only update category — never overwrite the name the user typed
+          if (data?.category) setBizType(data.category);
+          // Update address only if Places returned a better one and user left it blank
+          if (data?.address && !bizAddr.trim()) setBizAddr(data.address);
         }).catch(() => {
           setDetecting(false);
           setDetectDone(true);

@@ -174,58 +174,113 @@ const updateBusiness = asyncHandler(async (req, res) => {
 
 // @desc    Detect business category from name + address via Google Places API
 // @route   POST /api/v1/businesses/detect
-// @access  Private
+// @access  Public (called during onboarding before account creation)
 const detectBusiness = asyncHandler(async (req, res) => {
   const { name, address } = req.body;
-  if (!name) { res.status(400); throw new Error('Business name is required'); }
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    res.status(400);
+    throw new Error('Business name is required');
+  }
 
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY; // Never fall back to Vision key
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
   if (apiKey) {
     try {
-      const query = encodeURIComponent(`${name} ${address || ''}`.trim());
+      // Use Places API (New) — searchText endpoint (v1, not deprecated findplacefromtext)
+      const query = `${name.trim()} ${(address || '').trim()}`.trim();
       const placesRes = await fetch(
-        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=name,types,formatted_address&key=${apiKey}`
+        'https://places.googleapis.com/v1/places:searchText',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            // Only request the fields we need — minimises billing cost
+            'X-Goog-FieldMask': 'places.displayName,places.types,places.formattedAddress,places.primaryType',
+          },
+          body: JSON.stringify({
+            textQuery: query,
+            languageCode: 'en',
+            regionCode: 'IN',
+            maxResultCount: 1,
+          }),
+        }
       );
-      const data = await placesRes.json();
-      const candidate = data.candidates?.[0];
-      if (candidate) {
-        const typeMap = {
-          bakery: 'Bakery', restaurant: 'Restaurant', cafe: 'Café',
-          pharmacy: 'Pharmacy', clothing_store: 'Retail', hardware_store: 'Hardware',
-          grocery_or_supermarket: 'Grocery', beauty_salon: 'Salon', gym: 'Fitness',
-          electronics_store: 'Electronics', home_goods_store: 'Home Goods',
-        };
-         const matchedType = candidate.types?.find(t => typeMap[t]);
-         const category = matchedType ? typeMap[matchedType] : 'Business';
-         const estimates = getHeuristicEstimates(category);
-         return res.json({
-           name: candidate.name,
-           address: candidate.formatted_address,
-           category,
-           detectedVia: 'google_places',
-           ...estimates,
-         });
+
+      if (!placesRes.ok) {
+        const errBody = await placesRes.text().catch(() => '');
+        console.error('[detectBusiness] Places API HTTP error:', placesRes.status, errBody.slice(0, 200));
+        // Fall through to regex
+      } else {
+        const data = await placesRes.json();
+        const place = data.places?.[0];
+
+        if (place) {
+          const category = mapPlaceTypeToCategory(place.primaryType, place.types);
+          const estimates = getHeuristicEstimates(category);
+          return res.json({
+            // Return the user's original name — don't overwrite what they typed
+            name: name.trim(),
+            address: place.formattedAddress || address || '',
+            category,
+            detectedVia: 'google_places',
+            placeTypes: place.types || [],
+            ...estimates,
+          });
+        }
       }
     } catch (err) {
       console.error('[detectBusiness] Places API error:', err.message);
+      // Fall through to regex fallback
     }
   }
 
-   // Deterministic regex fallback
-   const lower = name.toLowerCase();
-   let category = 'Business';
-   if (/bak[e]?ry|cake|sweets|mithai/.test(lower)) category = 'Bakery';
-   else if (/pharmacy|medical|chemist|drug/.test(lower)) category = 'Pharmacy';
-   else if (/cafe|coffee|chai/.test(lower)) category = 'Café';
-   else if (/salon|spa|beauty|hair/.test(lower)) category = 'Salon';
-   else if (/restaurant|hotel|dhaba|biryani|tiffin/.test(lower)) category = 'Restaurant';
-   else if (/gym|fitness|yoga/.test(lower)) category = 'Fitness';
-   else if (/shop|store|mart|retail/.test(lower)) category = 'Retail';
+  // Deterministic regex fallback — works without any API key
+  const lower = name.toLowerCase();
+  let category = 'Business';
+  if (/bak[e]?ry|cake|sweets|mithai|confection/.test(lower))       category = 'Bakery';
+  else if (/pharmacy|medical|chemist|drug|medicine/.test(lower))   category = 'Pharmacy';
+  else if (/cafe|coffee|chai|tea stall/.test(lower))               category = 'Café';
+  else if (/salon|spa|beauty|hair|parlour/.test(lower))            category = 'Salon';
+  else if (/restaurant|hotel|dhaba|biryani|tiffin|food/.test(lower)) category = 'Restaurant';
+  else if (/gym|fitness|yoga|wellness/.test(lower))                category = 'Fitness';
+  else if (/shop|store|mart|retail|boutique|textiles/.test(lower)) category = 'Retail';
+  else if (/export|import|trade|logistics|freight/.test(lower))    category = 'Import/Export';
+  else if (/interior|design|architect|contractor/.test(lower))     category = 'Service Business';
+  else if (/clinic|hospital|doctor|dental/.test(lower))            category = 'Pharmacy';
+  else if (/school|tuition|coaching|academy/.test(lower))          category = 'Service Business';
 
-   // Heuristic estimates for channel and revenue based on category
-   const estimates = getHeuristicEstimates(category);
-   res.json({ name, address: address || '', category, detectedVia: 'regex', ...estimates });
- });
+  const estimates = getHeuristicEstimates(category);
+  res.json({ name: name.trim(), address: address || '', category, detectedVia: 'regex', ...estimates });
+});
+
+// Map Google Places primaryType / types array → Atlas category
+function mapPlaceTypeToCategory(primaryType, types = []) {
+  const all = [primaryType, ...types].filter(Boolean).map(t => t.toLowerCase());
+
+  const rules = [
+    { patterns: ['bakery', 'cake_shop', 'confectionery'],                    category: 'Bakery' },
+    { patterns: ['pharmacy', 'drugstore', 'medical_supply_store'],           category: 'Pharmacy' },
+    { patterns: ['cafe', 'coffee_shop', 'tea_house'],                        category: 'Café' },
+    { patterns: ['restaurant', 'food', 'meal_takeaway', 'meal_delivery'],    category: 'Restaurant' },
+    { patterns: ['beauty_salon', 'hair_care', 'spa', 'nail_salon'],          category: 'Salon' },
+    { patterns: ['gym', 'fitness_center', 'yoga_studio', 'sports_complex'],  category: 'Fitness' },
+    { patterns: ['clothing_store', 'shoe_store', 'jewelry_store',
+                 'home_goods_store', 'furniture_store', 'hardware_store',
+                 'electronics_store', 'book_store', 'department_store',
+                 'shopping_mall', 'supermarket', 'grocery_or_supermarket'],  category: 'Retail' },
+    { patterns: ['moving_company', 'storage', 'freight', 'courier'],         category: 'Import/Export' },
+    { patterns: ['general_contractor', 'interior_design', 'plumber',
+                 'electrician', 'painter', 'roofing_contractor'],            category: 'Service Business' },
+  ];
+
+  for (const rule of rules) {
+    if (rule.patterns.some(p => all.some(t => t.includes(p)))) {
+      return rule.category;
+    }
+  }
+  return 'Business';
+}
 
 // Helper: return plausible channel and revenue range for a business category
 function getHeuristicEstimates(category) {
