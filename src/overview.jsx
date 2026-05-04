@@ -159,8 +159,8 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
   const [business, setBusiness] = React.useState(initialBusiness || {});
   const [metrics, setMetrics] = React.useState((initialBusiness || {}).metrics || {});  
   const [revenueSeries, setRevenueSeries] = React.useState((initialBusiness || {}).revenueSeries || []);
-  const [customerGrowth, setCustomerGrowth] = React.useState((initialBusiness || {}).customerGrowth || []);
-  const [ordersSeries, setOrdersSeries] = React.useState((initialBusiness || {}).ordersSeries || []);
+  const [customerGrowth, setCustomerGrowth] = React.useState((initialBusiness || {}).customerGrowth || []); // eslint-disable-line no-unused-vars
+  const [ordersSeries, setOrdersSeries] = React.useState((initialBusiness || {}).ordersSeries || []); // eslint-disable-line no-unused-vars
   const [insights, setInsights] = React.useState((initialBusiness || {}).insights || []);
   const [actions, setActions] = React.useState((initialBusiness || {}).actions || []);
   const [peakHours, setPeakHours] = React.useState((initialBusiness || {}).peakHours || []);

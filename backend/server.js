@@ -108,7 +108,9 @@ const allowedOrigins = (
   process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(',')
     : ['http://localhost:5173', process.env.RENDER_EXTERNAL_URL].filter(Boolean)
-).map((origin) => origin.trim()).filter(Boolean);
+)
+  .map((origin) => (origin || '').trim())
+  .filter(Boolean);
 
 app.use(cors({
   origin: (/** @type {string | undefined} */ origin, callback) => {
@@ -208,7 +210,8 @@ const server = app.listen(port, () => {
         ).toString();
         console.log('[startup] Migrations:', migrateResult.trim().split('\n').pop());
       } catch (err) {
-        console.warn('[startup] migrate deploy warning:', err.stderr?.toString()?.trim() || err.message);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[startup] migrate deploy warning:', msg);
       }
     }
     // Run seed in production to ensure demo user + businesses exist.
