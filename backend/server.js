@@ -73,7 +73,7 @@ process.on('unhandledRejection', (reason) => {
 });
 process.on('uncaughtException', (err) => {
   console.error('[uncaughtException]', err.message);
-  if (err.code === 'EADDRINUSE') process.exit(1);
+  if (/** @type {NodeJS.ErrnoException} */ (err).code === 'EADDRINUSE') process.exit(1);
 });
 
 
@@ -107,7 +107,7 @@ const allowedOrigins = (
 ).map((origin) => origin.trim()).filter(Boolean);
 
 app.use(cors({
-  origin: (origin, callback) => {
+  origin: (/** @type {string | undefined} */ origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
@@ -213,7 +213,7 @@ const server = app.listen(port, () => {
 });
 
 // Graceful shutdown — Render sends SIGTERM before killing the process
-const shutdown = (sig) => {
+const shutdown = (/** @type {string} */ sig) => {
   console.log(`[shutdown] ${sig} received — draining connections`);
   server.close(() => { console.log('[shutdown] Done.'); process.exit(0); });
   setTimeout(() => { console.error('[shutdown] Forced exit'); process.exit(1); }, 10_000).unref();
