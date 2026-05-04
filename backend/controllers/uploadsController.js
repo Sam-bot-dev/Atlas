@@ -149,6 +149,8 @@ const rejectUpload = asyncHandler(async (req, res) => {
 
   res.json({ id: job.id, status: 'rejected' });
 });
+
+const deleteUpload = asyncHandler(async (req, res) => {
   await ensureBusiness(req);
 
   const job = await prisma.uploadJob.findFirst({
