@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { BizAvatar, Icon } from './ui';
 import { ATLAS_BUSINESS_LIST } from './data';
 import { AtlasAPI } from './api';
@@ -107,36 +108,40 @@ const DEMO_NOTIFICATIONS = {
 };
 
 // ── Shared modal wrapper ──────────────────────────────────────────────────────
-const SimpleModal = ({ title, icon, onClose, children }) => (
-  <div
-    style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-      zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '64px 24px 24px', overflowY: 'auto',
-    }}
-    onClick={onClose}
-  >
+// Rendered via a portal into document.body so it escapes any stacking context
+// created by parent elements (e.g. backdropFilter on the topbar).
+const SimpleModal = ({ title, icon, onClose, children }) => {
+  const content = (
     <div
-      className="card fade-in"
       style={{
-        width: '100%', maxWidth: 440, padding: 28,
-        background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)',
-        maxHeight: 'calc(100vh - 88px)', overflowY: 'auto',
-        margin: 'auto',
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+        zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
       }}
-      onClick={e => e.stopPropagation()}
+      onClick={onClose}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon name={icon} size={16}/>
-          <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>
+      <div
+        className="card scale-in"
+        style={{
+          width: '100%', maxWidth: 440, padding: 28,
+          background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)',
+          maxHeight: 'calc(100vh - 48px)', overflowY: 'auto',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Icon name={icon} size={16}/>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>
+          </div>
+          <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={onClose}><Icon name="x" size={15}/></button>
         </div>
-        <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={onClose}><Icon name="x" size={15}/></button>
+        {children}
       </div>
-      {children}
     </div>
-  </div>
-);
+  );
+  return createPortal(content, document.body);
+};
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
 const ProfileModal = ({ user, onClose, onNameUpdate }) => {
@@ -295,7 +300,7 @@ export const TopBar = ({ title, business, user, onExit = null, onOpenChat }) => 
     <div style={{
       height: 56, padding: '0 24px',
       borderBottom: '1px solid var(--border-subtle)',
-      background: 'var(--topbar-bg)', backdropFilter: 'blur(8px)',
+      background: 'var(--topbar-bg)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       gap: 16, position: 'sticky', top: 0, zIndex: 5,
     }}>

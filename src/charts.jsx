@@ -17,10 +17,17 @@ const useMeasure = () => {
 };
 
 const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yKey = 'v', showAxis = true, fill = true }) => {
-  // Fix #58: gradient IDs must be unique per chart instance or multiple charts
-  // on the same page all share the same gradient and show wrong fill colors.
-  // Use a stable per-instance id via useRef.
   const gradId = React.useRef(`grad-${Math.random().toString(36).slice(2, 8)}`).current;
+  const clipId = React.useRef(`clip-${Math.random().toString(36).slice(2, 8)}`).current;
+  // Remount key so animation replays when data changes (period switch)
+  const [animKey, setAnimKey] = React.useState(0);
+  const prevDataRef = React.useRef(data);
+  React.useEffect(() => {
+    if (data !== prevDataRef.current) {
+      prevDataRef.current = data;
+      setAnimKey(k => k + 1);
+    }
+  }, [data]);
 
   const [ref, { w }] = useMeasure();
   const padL = 36, padR = 12, padT = 12, padB = showAxis ? 22 : 8;
@@ -35,8 +42,6 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
     const dataMin = Math.min(...ys);
     const dataMax = Math.max(...ys);
     const dataRange = dataMax - dataMin || dataMax * 0.1 || 1;
-    // Smart baseline: pad 15% below min so variation fills the chart.
-    // Only anchor to 0 if the data actually crosses or touches 0.
     const pad = dataRange * 0.15;
     minY = dataMin > 0 ? Math.max(0, dataMin - pad) : dataMin - pad;
     maxY = dataMax + pad * 0.5;
@@ -52,15 +57,25 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
   const yTicks = 4;
   const ticks = Array.from({ length: yTicks + 1 }, (_, i) => minY + (range > 0 ? (range * i / yTicks) : 0));
 
+  // Approximate path length for stroke-dasharray animation
+  const pathLen = points.reduce((len, p, i) => {
+    if (i === 0) return 0;
+    const prev = points[i - 1];
+    return len + Math.hypot(p.x - prev.x, p.y - prev.y);
+  }, 0) || 1000;
+
   return (
     <div ref={ref} style={{ width: '100%', height }}>
       {w > 0 && (
-        <svg width={w} height={height} style={{ display: 'block', overflow: 'visible' }}>
+        <svg key={animKey} width={w} height={height} style={{ display: 'block', overflow: 'visible' }}>
           <defs>
-          <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+            <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor={accent} stopOpacity="0.10"/>
               <stop offset="100%" stopColor={accent} stopOpacity="0"/>
             </linearGradient>
+            <clipPath id={clipId}>
+              <rect x={padL} y={padT} width={innerW} height={innerH + 2}/>
+            </clipPath>
           </defs>
           {ticks.map((t, i) => {
             const y = padT + innerH - ((range > 0 ? (t - minY) / range : 0) * innerH);
@@ -73,10 +88,26 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
               </g>
             );
           })}
-          {fill && <path d={area} fill={`url(#${gradId})`}/>}
-          <path d={path} fill="none" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Fill fades in */}
+          {fill && (
+            <path d={area} fill={`url(#${gradId})`} clipPath={`url(#${clipId})`}
+              style={{ opacity: 0, animation: 'fadeIn 600ms 200ms ease forwards' }}
+            />
+          )}
+          {/* Line draws in */}
+          <path
+            d={path} fill="none" stroke={accent} strokeWidth="1.5"
+            strokeLinecap="round" strokeLinejoin="round"
+            strokeDasharray={pathLen}
+            strokeDashoffset={pathLen}
+            style={{ animation: `drawPath 700ms cubic-bezier(0.16,1,0.3,1) forwards` }}
+          />
+          {/* Dots pop in after line */}
           {points.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="var(--bg-elevated)" stroke={accent} strokeWidth="1.5"/>
+            <circle key={i} cx={p.x} cy={p.y} r="2.5"
+              fill="var(--bg-elevated)" stroke={accent} strokeWidth="1.5"
+              style={{ opacity: 0, animation: `fadeIn 200ms ${600 + i * 30}ms ease forwards` }}
+            />
           ))}
           {showAxis && data.map((d, i) => (
             <text key={i} x={padL + i * stepX} y={height - 6} fontSize="10" textAnchor="middle" fill="var(--ink-4)" fontFamily="var(--font-mono)">
@@ -90,6 +121,15 @@ const LineChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'm', yK
 };
 
 const BarChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'd', yKey = 'v', showAxis = true }) => {
+  const [animKey, setAnimKey] = React.useState(0);
+  const prevDataRef = React.useRef(data);
+  React.useEffect(() => {
+    if (data !== prevDataRef.current) {
+      prevDataRef.current = data;
+      setAnimKey(k => k + 1);
+    }
+  }, [data]);
+
   const [ref, { w }] = useMeasure();
   const padL = 28, padR = 8, padT = 12, padB = showAxis ? 22 : 8;
   const innerW = Math.max(0, w - padL - padR);
@@ -104,7 +144,7 @@ const BarChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'd', yKe
   return (
     <div ref={ref} style={{ width: '100%', height }}>
       {w > 0 && (
-        <svg width={w} height={height} style={{ display: 'block' }}>
+        <svg key={animKey} width={w} height={height} style={{ display: 'block' }}>
           {ticks.map((t, i) => {
             const y = padT + innerH - (t / maxY) * innerH;
             return (
@@ -120,9 +160,16 @@ const BarChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'd', yKe
             const h = (d[yKey] / maxY) * innerH;
             const x = padL + i * slot + (slot - barW) / 2;
             const y = padT + innerH - h;
+            const delay = i * 40;
             return (
               <g key={i}>
-                <rect x={x} y={y} width={barW} height={h} rx="2" fill={accent} opacity={d.highlight ? 1 : 0.85}/>
+                <rect
+                  x={x} y={padT + innerH} width={barW} height={0} rx="2"
+                  fill={accent} opacity={d.highlight ? 1 : 0.85}
+                >
+                  <animate attributeName="height" from="0" to={h} dur="500ms" begin={`${delay}ms`} fill="freeze" calcMode="spline" keySplines="0.16 1 0.3 1" keyTimes="0;1"/>
+                  <animate attributeName="y" from={padT + innerH} to={y} dur="500ms" begin={`${delay}ms`} fill="freeze" calcMode="spline" keySplines="0.16 1 0.3 1" keyTimes="0;1"/>
+                </rect>
                 {showAxis && (
                   <text x={x + barW / 2} y={height - 6} fontSize="10" textAnchor="middle" fill="var(--ink-4)" fontFamily="var(--font-mono)">{d[xKey]}</text>
                 )}
@@ -166,7 +213,9 @@ const DonutChart = ({ data, size = 180, thickness = 22 }) => {
         <svg width={size} height={size}>
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg-subtle)" strokeWidth={thickness}/>
           {segs.map((s, i) => (
-            <path key={i} d={s.d} fill="none" stroke={s.color} strokeWidth={thickness} strokeLinecap="butt"/>
+            <path key={i} d={s.d} fill="none" stroke={s.color} strokeWidth={thickness} strokeLinecap="butt"
+              style={{ opacity: 0, animation: `fadeIn 400ms ${i * 80}ms cubic-bezier(0.16,1,0.3,1) forwards` }}
+            />
           ))}
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

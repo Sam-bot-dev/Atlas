@@ -682,9 +682,10 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
         <SectionHeader eyebrow="01" title="What is happening" subtitle="Six leading indicators + ML forecast across your business"/>
 
         {/* Fix #4: render the 6 MetricTile components that were declared but never mounted */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }} className="stagger">
           {prioritizedMetricKeys.map(key => (
-            <MetricTile
+            <div key={key} className="slide-up">
+              <MetricTile
               key={key}
               loading={loadingMetrics}
               tooltip={metricTooltips[key]}
@@ -693,6 +694,7 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
                 : { ...fallbackMetric, label: key.charAt(0).toUpperCase() + key.slice(1) }
               }
             />
+            </div>
           ))}
         </div>
 
@@ -901,13 +903,13 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
       <ErrorBoundary>
       <div style={{ marginBottom: 36 }}>
         <SectionHeader eyebrow="02" title="Why it is happening" subtitle={`· Atlas analyzed your business data across ${Object.keys(metrics).length} signals`}/>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }} className="stagger">
           {loadingInsights
             ? [0, 1, 2].map(i => <SkeletonInsightCard key={i} />)
             : (() => {
                 const filtered = insights.filter(ins => filterSeverity === 'all' || ins.severity === filterSeverity);
                 if (filtered.length > 0) {
-                  return filtered.map((ins, i) => <InsightCard key={ins.id || i} insight={ins} index={i} onTakeAction={takeAction} onExplain={handleExplain}/>);
+                  return filtered.map((ins, i) => <div key={ins.id || i} className="slide-up"><InsightCard insight={ins} index={i} onTakeAction={takeAction} onExplain={handleExplain}/></div>);
                 }
                 return (
                   <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
@@ -927,11 +929,11 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
       <ErrorBoundary>
       <div>
         <SectionHeader eyebrow="03" title="What to do next" subtitle="· Ranked by projected impact and your goals"/>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }} className="stagger">
           {loadingActions
             ? [0, 1, 2].map(i => <SkeletonActionCard key={i} />)
             : actions.length > 0
-              ? actions.map((a, i) => <ActionCard key={a.id || i} action={a} onApply={(type) => apply(a.id || `action-${i}`, i, type, a)} applied={!!appliedActions[a.title]} appliedType={appliedActions[a.title]}/>) 
+              ? actions.map((a, i) => <div key={a.id || i} className="slide-up"><ActionCard action={a} onApply={(type) => apply(a.id || `action-${i}`, i, type, a)} applied={!!appliedActions[a.title]} appliedType={appliedActions[a.title]}/></div>) 
               : (
                 <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px 0', color: 'var(--ink-4)', border: '1px dashed var(--border)', borderRadius: 12 }}>
                   No recommended actions yet.
