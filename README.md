@@ -174,5 +174,5 @@ Atlas was architected and built by a dedicated two-member team from India:
 ---
 
 <div align="center">
-  Built with ❤️ for Indian SMBs
+  Built with ❤️ by Better Call Coders
 </div>
