@@ -39,6 +39,23 @@ export function buildDemoData(business, period) {
   if (useDaily) {
     // Slice last N days from the daily series
     series = dailySeries.slice(-days);
+    // Fix #B8: If no daily series exists, generate synthetic daily data from monthly series
+    if (series.length === 0 && monthlySeries.length > 0) {
+      const monthlyTotal = monthlySeries[monthlySeries.length - 1]?.v || 1000;
+      const dailyAvg = monthlyTotal / days;
+      // Generate realistic daily variation (weekdays 0.8-1.0x, weekends 1.1-1.5x)
+      const dayOfWeek = new Date().getDay();
+      series = Array.from({ length: days }, (_, i) => {
+        const dow = (dayOfWeek + i) % 7; // day of week
+        const isWeekend = dow === 0 || dow === 6;
+        const variance = isWeekend ? 1.2 + Math.random() * 0.3 : 0.8 + Math.random() * 0.2;
+        const value = Math.max(100, Math.round(dailyAvg * variance));
+        const date = new Date();
+        date.setDate(date.getDate() - days + i + 1);
+        const d = date.getDate() + ' ' + date.toLocaleString('en-IN', { month: 'short' });
+        return { d, v: value };
+      });
+    }
     customerSeries = custDaily.length > 0 ? custDaily.slice(-days) : [];
   } else {
     // Monthly slices: 3M=3, 6M=6, 1Y=12

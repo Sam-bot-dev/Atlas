@@ -242,7 +242,9 @@ const BarChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'd', yKe
 
   const ys = (data || []).map(d => d[yKey]);
   const maxY = Math.max(...ys, 1);
-  const slot = data.length > 0 ? innerW / data.length : 0;
+  // Fix #B2: data.length was accessed without a null guard — (data||[]) already
+  // protects ys but slot used data.length directly, crashing if data was null.
+  const slot = (data || []).length > 0 ? innerW / (data || []).length : 0;
   const barW = Math.max(8, slot * 0.58);
   const yTicks = 3;
   const ticks = Array.from({ length: yTicks + 1 }, (_, i) => maxY * i / yTicks);
@@ -271,7 +273,7 @@ const BarChart = ({ data, height = 140, accent = 'var(--ink-1)', xKey = 'd', yKe
           })}
 
           {/* Bars */}
-          {data.map((d, i) => {
+          {(data || []).map((d, i) => {
             const h = Math.max(2, (d[yKey] / maxY) * innerH);
             const x = padL + i * slot + (slot - barW) / 2;
             const y = padT + innerH - h;
@@ -493,8 +495,10 @@ const HeatmapChart = ({ data, accent = 'var(--ink-1)', accentHex = '#1c1917' }) 
   };
   const { r, g, b } = hexToRgb(accentHex);
 
-  // Find global max for relative intensity
-  const allVals = (data || []).flat();
+  // Fix #B3: (data||[]).flat() can contain null/undefined when rows have gaps,
+  // making Math.max return NaN and all cells render as transparent.
+  // Filter to finite numbers only before finding the max.
+  const allVals = (data || []).flat().filter(Number.isFinite);
   const maxVal  = Math.max(...allVals, 1);
 
   return (

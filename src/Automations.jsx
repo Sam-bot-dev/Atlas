@@ -277,7 +277,7 @@ export const Automations = ({ business }) => {
       {/* Stats bar */}
       {runCount > 0 && (
         <div className="card fade-in" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', gap: 24, alignItems: 'center', background: 'var(--bg-subtle)' }}>
-          <div style={{ display: 'flex', align: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="check" size={13} color="var(--positive)"/>
             <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>
               <strong style={{ color: 'var(--positive)' }}>{firedCount}</strong> automations fired

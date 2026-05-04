@@ -72,19 +72,26 @@ const get = (path, params) => {
   return withTimeout(fetch(url, { headers: headers() })).then(handleResponse);
 };
 
+// Fix #B1: post/patch/del/upload were calling headers('POST') which passed the
+// method string as the `extra` object arg, causing two bugs:
+//   1. The method arg defaulted to 'GET', so CSRF token was never attached to mutations.
+//   2. Spreading a string ('POST') as an object adds numbered char keys
+//      {'0':'P','1':'O','2':'S','3':'T'} — garbage keys on every request.
+// Correct call is headers({}, 'METHOD').
 const post = (path, body) =>
-  withTimeout(fetch(API_BASE + path, { method: 'POST', headers: headers('POST'), body: JSON.stringify(body) })).then(handleResponse);
+  withTimeout(fetch(API_BASE + path, { method: 'POST', headers: headers({}, 'POST'), body: JSON.stringify(body) })).then(handleResponse);
 
 const patch = (path, body) =>
-  withTimeout(fetch(API_BASE + path, { method: 'PATCH', headers: headers('PATCH'), body: JSON.stringify(body) })).then(handleResponse);
+  withTimeout(fetch(API_BASE + path, { method: 'PATCH', headers: headers({}, 'PATCH'), body: JSON.stringify(body) })).then(handleResponse);
 
 const del = (path) =>
-  withTimeout(fetch(API_BASE + path, { method: 'DELETE', headers: headers('DELETE') })).then(handleResponse);
+  withTimeout(fetch(API_BASE + path, { method: 'DELETE', headers: headers({}, 'DELETE') })).then(handleResponse);
 
 const upload = (path, formData) =>
   withTimeout(fetch(API_BASE + path, {
     method: 'POST',
-    headers: { ...headers('POST'), 'Content-Type': undefined },
+    // Content-Type is explicitly unset so the browser sets the correct multipart boundary.
+    headers: { ...headers({}, 'POST'), 'Content-Type': undefined },
     body: formData,
   })).then(handleResponse);
 
