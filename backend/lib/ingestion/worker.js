@@ -105,24 +105,32 @@ const enqueueUploadJob = (jobId) => {
 };
 
 const recoverQueuedUploadJobs = async () => {
-  const jobs = await prisma.uploadJob.findMany({
-    where: { status: { in: ['queued', 'processing'] } },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  for (const job of jobs) {
-    if (job.status === 'processing') {
-      // Reset processing jobs to queued and clear stage
-      await prisma.uploadJob.update({
-        where: { id: job.id },
-        // Fix #56: stage is String non-nullable in schema; null would throw Prisma validation error
-      data: { status: 'queued', stage: 'queued' },
+  let retries = 3;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const jobs = await prisma.uploadJob.findMany({
+        where: { status: { in: ['queued', 'processing'] } },
+        orderBy: { createdAt: 'asc' },
       });
-    }
-    enqueueUploadJob(job.id);
-  }
 
-  return jobs.length;
+      for (const job of jobs) {
+        if (job.status === 'processing') {
+          // Reset processing jobs to queued and clear stage
+          await prisma.uploadJob.update({
+            where: { id: job.id },
+            data: { status: 'queued', stage: 'queued' },
+          });
+        }
+        enqueueUploadJob(job.id);
+      }
+
+      return jobs.length;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      console.warn(`Upload job recovery attempt ${i + 1} failed, retrying...`, error);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // wait 1s, 2s, 3s
+    }
+  }
 };
 
 module.exports = { enqueueUploadJob, recoverQueuedUploadJobs };
