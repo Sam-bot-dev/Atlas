@@ -318,8 +318,7 @@ export const TopBar = ({ title, business, user, onExit = null, onOpenChat }) => 
             {notifications.length > 0 && (
               <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>
             )}
-          </button>
-          {notifOpen && (
+          </button>          {notifOpen && (
             <div
               style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 280, maxWidth: 320, boxShadow: 'var(--shadow-lg)', zIndex: 1000 }}
               onMouseLeave={() => setNotifOpen(false)}
@@ -340,6 +339,19 @@ export const TopBar = ({ title, business, user, onExit = null, onOpenChat }) => 
           )}
         </div>
 
+        <div style={{ width: 1, height: 22, background: 'var(--border)' }}/>
+        {/* Chat shortcut hint */}
+        {onOpenChat && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={onOpenChat}
+            title="Open Atlas AI (⌘K)"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-3)' }}
+          >
+            <Icon name="sparkles" size={13}/>
+            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', padding: '1px 5px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-subtle)', letterSpacing: '0.02em' }}>⌘K</span>
+          </button>
+        )}
         <div style={{ width: 1, height: 22, background: 'var(--border)' }}/>
         <button onClick={() => setOpen(!open)} style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px',

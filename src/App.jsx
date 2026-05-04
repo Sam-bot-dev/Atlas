@@ -287,10 +287,11 @@ export default function App() {
               {!showChat && (
                 <button 
                   className="btn btn-primary fade-in" 
-                  style={{ position: 'fixed', right: 24, bottom: 24, width: 56, height: 56, borderRadius: 28, boxShadow: 'var(--shadow-lg)', justifyContent: 'center', zIndex: 1900 }}
+                  title="Open Atlas Chat (⌘K)"
+                  style={{ position: 'fixed', right: 24, bottom: 24, width: 56, height: 56, borderRadius: 28, boxShadow: 'var(--shadow-lg)', justifyContent: 'center', zIndex: 1900, display: 'flex', alignItems: 'center', gap: 0 }}
                   onClick={() => setShowChat(true)}
                 >
-                  <Icon name="message" size={24}/>
+                  <Icon name="message" size={22}/>
                 </button>
               )}
               {showChat && <ChatPanel business={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} onClose={() => setShowChat(false)}/>}
@@ -299,13 +300,21 @@ export default function App() {
               <BusinessSwitcher 
                 current={currentBusiness || ATLAS_BUSINESSES[bizId] || ATLAS_BUSINESSES['baker']} 
                 allBusinessList={
-                  // Real users only see their own businesses — never demo ones
-                  apiBusinesses.map(b => ({ id: b.id, name: b.name, category: b.category, location: b.location, isDemo: false }))
+                  isDemoMode
+                    // Demo mode: show all 6 demo businesses
+                    ? ATLAS_BUSINESS_LIST
+                    // Real users only see their own businesses — never demo ones
+                    : apiBusinesses.map(b => ({ id: b.id, name: b.name, category: b.category, location: b.location, isDemo: false }))
                 }
                 onSelect={(id) => {
-                  setIsDemoMode(false);
-                  setBizId(id);
-                  if (allBusinesses[id]) setCurrentBusiness(allBusinesses[id]);
+                  if (isDemoMode) {
+                    setBizId(id);
+                    setCurrentBusiness(ATLAS_BUSINESSES[id] || null);
+                  } else {
+                    setIsDemoMode(false);
+                    setBizId(id);
+                    if (allBusinesses[id]) setCurrentBusiness(allBusinesses[id]);
+                  }
                 }} 
                 onClose={() => setShowSwitcher(false)}
               />

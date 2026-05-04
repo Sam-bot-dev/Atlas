@@ -134,10 +134,11 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
-  transition: box-shadow 200ms ease, border-color 200ms ease;
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
 }
 .card:not(.no-hover):hover {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 /* Inputs */
@@ -250,10 +251,9 @@ a { color: inherit; text-decoration: none; }
 }
 .scale-in { animation: scaleIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-/* SVG path draw — applied to chart lines */
+/* SVG path draw — applied to chart lines via inline strokeDasharray/strokeDashoffset */
 @keyframes drawPath {
-  from { stroke-dashoffset: 1; }
-  to   { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 0; }
 }
 
 /* Bar grow up */
@@ -382,6 +382,29 @@ a { color: inherit; text-decoration: none; }
 }
 .processing-pulse { animation: processingPulse 1.4s ease-in-out infinite; }
 
+/* Tooltip pop-in */
+@keyframes tooltipPop {
+  from { opacity: 0; transform: scale(0.92) translateY(3px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Metric tile number — subtle scale-in on mount */
+@keyframes numIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.num-in { animation: numIn 280ms cubic-bezier(0.16,1,0.3,1) forwards; }
+
+/* Insight / action card hover lift */
+.card-interactive {
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+.card-interactive:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+}
+
 /* Heatmap cell hover */
 .heatmap-cell:hover { outline: 1.5px solid var(--ink-1); }
 
@@ -445,4 +468,62 @@ a { color: inherit; text-decoration: none; }
     transparent
   );
   background-size: 600px 100%;
+}
+
+/* ── Mobile responsiveness ──────────────────────────────── */
+@media (max-width: 768px) {
+  /* Hide sidebar on mobile — use the business switcher button instead */
+  aside {
+    display: none !important;
+  }
+
+  /* Full-width main content */
+  div[style*="display: flex"][style*="minHeight: 100vh"] > div:last-child {
+    min-width: 0 !important;
+  }
+
+  /* Tighten page padding */
+  div[style*="padding: '32px 32px"] {
+    padding: 16px 16px 80px !important;
+  }
+
+  /* Stack 2-col grids to single column */
+  div[style*="gridTemplateColumns: '2fr 1fr'"],
+  div[style*="gridTemplateColumns: '1fr 1fr'"],
+  div[style*="gridTemplateColumns: 'repeat(3, 1fr)'"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chat panel full-width on mobile */
+  .fade-in[style*="width: 400"] {
+    width: calc(100vw - 24px) !important;
+    right: 12px !important;
+    left: 12px !important;
+  }
+
+  /* Topbar breadcrumb — hide business name on very small screens */
+  @media (max-width: 480px) {
+    .topbar-breadcrumb { display: none; }
+  }
+}
+
+@media (max-width: 900px) {
+  /* Collapse sidebar to icon-only strip */
+  aside {
+    width: 56px !important;
+  }
+  aside .eyebrow,
+  aside span:not([class]),
+  aside div[style*="fontSize: 13"],
+  aside div[style*="fontSize: 11"],
+  aside div[style*="fontSize: 12"] {
+    display: none !important;
+  }
+  aside button[style*="gap: 10"] {
+    justify-content: center !important;
+    padding: 8px !important;
+  }
+  aside div[style*="padding: 12"] {
+    padding: 8px !important;
+  }
 }

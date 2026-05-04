@@ -25,7 +25,7 @@ const MetricTile = ({ m, loading, tooltip }) => {
       ? `${displayVal}${m.unit}`
       : displayVal.toLocaleString('en-IN');
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 110, position: 'relative' }} title={tooltip}>
+    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 110, position: 'relative', cursor: 'default' }} title={tooltip}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
           {m.label}
@@ -33,7 +33,7 @@ const MetricTile = ({ m, loading, tooltip }) => {
         </div>
         <Icon name="more" size={14} color="var(--ink-4)"/>
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 500, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-1)' }}>
+      <div className="num-in" style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 500, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-1)' }}>
         {value}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -51,7 +51,7 @@ const InsightCard = ({ insight, index, onExplain, onTakeAction }) => {
   const sourceLabel = insight.evidence?.[0] || 'Data Engine';
 
   return (
-    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="card card-interactive" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 22, height: 22, borderRadius: 5, background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -91,7 +91,7 @@ const ActionCard = ({ action, onApply, applied, appliedType }) => {
     : ({ High: 90, Medium: 70, Low: 50 }[action.confidence] || 60);
   const confColor = conf >= 85 ? 'var(--positive)' : conf >= 70 ? 'var(--warning)' : 'var(--ink-3)';
   return (
-    <div className="card" style={{
+    <div className="card card-interactive" style={{
       padding: 18, display: 'flex', flexDirection: 'column', gap: 12,
       borderColor: action.urgent ? 'var(--ink-1)' : 'var(--border)',
       position: 'relative',
@@ -220,16 +220,16 @@ export const Overview = ({ business: initialBusiness, onNavigate }) => {
       icon: 'sun',
       label: 'Ahmedabad · Heatwave Alert',
     },
-    // Chai Trunk — Hyderabad, Telangana (light showers, cold brew opportunity)
+    // Chai Trunk — Bengaluru, Karnataka (pre-monsoon showers, cold brew opportunity)
     cafe: {
       type: 'environmental',
-      title: 'Hyderabad Light Showers — Comfort Drink Surge',
-      body: 'Hyderabad is seeing intermittent showers this week (20–24°C). Footfall at outdoor cafes drops 20% but dwell time increases 35% — customers stay longer and order more. Hot beverages and snack combos spike on rainy days.',
+      title: 'Bengaluru Pre-Monsoon Showers — Comfort Drink Surge',
+      body: 'Bengaluru is seeing intermittent showers this week (22–26°C). Footfall at outdoor cafes drops 20% but dwell time increases 35% — customers stay longer and order more. Hot beverages and snack combos spike on rainy days.',
       action: 'Push "Rainy Day Combo" — masala chai + vada pav at ₹99',
       impact: '+₹11,000 in combo revenue this week',
       confidence: 82,
       icon: 'cloud-drizzle',
-      label: 'Hyderabad · Shower Forecast',
+      label: 'Bengaluru · Shower Forecast',
     },
     // Bharat Global Exports — Mumbai, Maharashtra (cyclone watch, port disruption)
     trade: {
