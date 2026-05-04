@@ -114,7 +114,7 @@ const DEMO_EVALUATORS = {
     const temp = 36;
     return { fired: temp > 34, result: `${temp}°C forecast — cold brew + aam panna promo posted to Instagram` };
   },
-  'IT park holiday next day': () => {
+  'Hitech City holiday next day': () => {
     const isHoliday = new Date().getDay() === 5; // simulate Friday before holiday
     return { fired: isHoliday, result: isHoliday ? 'Holiday detected — milk order reduced 30%, morning shift adjusted' : 'No holiday tomorrow' };
   },

@@ -937,7 +937,7 @@ export const Reports = ({ business }) => {
       }
     }
     // Client-side HTML report (opens in new tab with print-to-PDF button)
-    generateAndDownload(business, '1M', `Atlas_Brief_${(business.name || 'report').replace(/\s+/g, '_')}.html`);
+    generateAndDownload(business, report.type === 'monthly' ? '1M' : '7D');
   };
 
   if (!business) return <div style={{ padding: 64 }}>Select a business.</div>;
