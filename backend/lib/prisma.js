@@ -12,7 +12,8 @@ if (!process.env.DATABASE_URL) {
 const globalForPrisma = globalThis;
 
 if (!globalForPrisma.prisma) {
-  const adapter = process.env.DATABASE_URL.startsWith('postgresql') ? new (require('@prisma/adapter-pg'))({ connectionString: process.env.DATABASE_URL }) : undefined;
+  const { PrismaPg } = require('@prisma/adapter-pg');
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
   // Start with no logging so startup probe failures don't spam prisma:error.
   // waitForDb() in server.js will confirm readiness before any real queries run.
