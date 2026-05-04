@@ -159,13 +159,13 @@ app.use((_req, res, next) => {
 // Global Error Handler
 app.use(errorHandler);
 
-// Poll until the DB accepts a query, with exponential backoff (max ~30s total)
+// Wait for DB to be ready using $connect() — avoids Prisma logging query errors during probe
 const waitForDb = async () => {
   const { prisma } = require('./lib/prisma');
   const maxAttempts = 10;
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      await prisma.$queryRaw`SELECT 1`;
+      await prisma.$connect();
       return;
     } catch {
       const delay = Math.min(1000 * 2 ** i, 8000);
