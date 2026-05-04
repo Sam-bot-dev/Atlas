@@ -108,8 +108,24 @@ const DEMO_NOTIFICATIONS = {
 
 // ── Shared modal wrapper ──────────────────────────────────────────────────────
 const SimpleModal = ({ title, icon, onClose, children }) => (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
-    <div className="card fade-in" style={{ width: '100%', maxWidth: 440, padding: 28, background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)' }} onClick={e => e.stopPropagation()}>
+  <div
+    style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+      zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '64px 24px 24px', overflowY: 'auto',
+    }}
+    onClick={onClose}
+  >
+    <div
+      className="card fade-in"
+      style={{
+        width: '100%', maxWidth: 440, padding: 28,
+        background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)',
+        maxHeight: 'calc(100vh - 88px)', overflowY: 'auto',
+        margin: 'auto',
+      }}
+      onClick={e => e.stopPropagation()}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name={icon} size={16}/>
