@@ -6,13 +6,13 @@ import { AtlasAPI } from './api';
 // Atlas — Dashboard shell + sidebar + topbar
 
 const SIDEBAR_ITEMS = [
-  { id: 'overview', label: 'Overview', icon: 'home' },
-  { id: 'analytics', label: 'Analytics', icon: 'chart' },
-  { id: 'tasks', label: 'Tasks', icon: 'check-square' },
-  { id: 'sources', label: 'Data sources', icon: 'database' },
-  { id: 'automations', label: 'Automations', icon: 'zap' },
-  { id: 'reports', label: 'Reports', icon: 'file' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'overview',    label: 'Overview',      icon: 'home'         },
+  { id: 'analytics',  label: 'Analytics',     icon: 'chart'        },
+  { id: 'sources',    label: 'Data sources',  icon: 'database'     },
+  { id: 'tasks',      label: 'Tasks',         icon: 'check-square' },
+  { id: 'automations',label: 'Automations',   icon: 'zap'          },
+  { id: 'reports',    label: 'Reports',       icon: 'file'         },
+  { id: 'settings',   label: 'Settings',      icon: 'settings'     },
 ];
 
 export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo, onUpgrade, user = null }) => {
@@ -37,8 +37,8 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo, 
         >
           <BizAvatar business={business} size={26}/>
           <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-           <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{business?.name}</div>
-             <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{business?.category}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{business?.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{business?.category}</div>
             {isDemo && <span className="badge" style={{ fontSize: 10 }}>Demo</span>}
           </div>
           <Icon name="chevron-down" size={14} color="var(--ink-3)"/>
@@ -72,15 +72,17 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo, 
         })}
       </div>
 
-<div style={{ padding: 12, borderTop: '1px solid var(--border-subtle)' }}>
+      <div style={{ padding: 12, borderTop: '1px solid var(--border-subtle)' }}>
         <div className="card" style={{ padding: 12, background: 'var(--bg-elevated)' }}>
-     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
-       <Icon name="sparkles" size={13}/>
-       {user?.subscription?.status === 'active' ? 'Pro trial' : 'Atlas Pro trial'}
-     </div>
-     <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>
-       {user?.subscription?.status === 'active' ? 'Active until ' + (user.subscription.current_period_end ? new Date(user.subscription.current_period_end).toLocaleDateString() : 'soon') : 'Trial active'}
-     </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+            <Icon name="sparkles" size={13}/>
+            {user?.subscription?.status === 'active' ? 'Pro trial' : 'Atlas Pro trial'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10 }}>
+            {user?.subscription?.status === 'active'
+              ? 'Active until ' + (user.subscription.current_period_end ? new Date(user.subscription.current_period_end).toLocaleDateString() : 'soon')
+              : 'Trial active'}
+          </div>
           <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={onUpgrade}>
             {user?.subscription?.status === 'active' ? 'Manage' : 'Upgrade'}
           </button>
@@ -93,6 +95,16 @@ export const Sidebar = ({ active, onChange, business, onSwitch, onExit, isDemo, 
   );
 };
 
+// Demo notifications — contextual per business so the bell has real content
+const DEMO_NOTIFICATIONS = {
+  baker:    [{ message: "3 new orders — 2 custom cakes, 1 hamper", time: "2m ago" }, { message: "Ingredient alert: butter below 5-day threshold", time: "1h ago" }, { message: "New 5★ review: 'Best birthday cake in Pune!'", time: "3h ago" }],
+  retail:   [{ message: "B2B reorder due: Riya Boutique (22-day cadence)", time: "30m ago" }, { message: "18 polyester SKUs flagged for markdown", time: "2h ago" }, { message: "Revenue 20% below forecast — offer drafted", time: "4h ago" }],
+  pharmacy: [{ message: "14 refill reminders sent via WhatsApp", time: "1h ago" }, { message: "Schedule H stock: Alprazolam below reorder", time: "3h ago" }, { message: "Monsoon stock PO auto-generated for review", time: "Yesterday" }],
+  cafe:     [{ message: "Loyalty voucher sent to 8 inactive members", time: "45m ago" }, { message: "Daily milk: 23L — standing order updated", time: "6h ago" }, { message: "New Swiggy review (3★) — reply drafted", time: "Yesterday" }],
+  trade:    [{ message: "Shipment #SH-2847 delayed 52h — client notified", time: "1h ago" }, { message: "USD/INR moved 1.8% — hedging alert ready", time: "3h ago" }, { message: "GST filing due in 5 days — accounts notified", time: "Yesterday" }],
+  service:  [{ message: "Quote follow-up sent to 3 leads (7-day cadence)", time: "2h ago" }, { message: "Project #P-14 complete — review request sent", time: "4h ago" }, { message: "Crew at 94% — hiring alert triggered", time: "Yesterday" }],
+};
+
 export const TopBar = ({ title, business, user, onExit = null }) => {
   const [open, setOpen] = React.useState(false);
   const [askOpen, setAskOpen] = React.useState(false);
@@ -100,45 +112,11 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
   const userName = user?.name || business?.owner || 'Owner';
   const initials = userName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'AT';
 
-  // Demo businesses get contextual notifications based on their data
-  const DEMO_NOTIFICATIONS = {
-    baker: [
-      { message: "3 new orders received — 2 custom cakes, 1 hamper", time: "2m ago" },
-      { message: "Ingredient stock alert: butter below 5-day threshold", time: "1h ago" },
-      { message: "New 5★ review on Google: 'Best birthday cake in Pune!'", time: "3h ago" },
-    ],
-    retail: [
-      { message: "B2B reorder due: Riya Boutique (22-day cadence)", time: "30m ago" },
-      { message: "18 polyester SKUs flagged for markdown review", time: "2h ago" },
-      { message: "Revenue 20% below forecast today — offer drafted", time: "4h ago" },
-    ],
-    pharmacy: [
-      { message: "14 refill reminders sent via WhatsApp", time: "1h ago" },
-      { message: "Schedule H stock: Alprazolam below reorder level", time: "3h ago" },
-      { message: "Monsoon stock PO auto-generated for review", time: "Yesterday" },
-    ],
-    cafe: [
-      { message: "Loyalty voucher sent to 8 inactive members", time: "45m ago" },
-      { message: "Daily milk pull: 23L — standing order updated", time: "6h ago" },
-      { message: "New Swiggy review (3★) — reply drafted for approval", time: "Yesterday" },
-    ],
-    trade: [
-      { message: "Shipment #SH-2847 delayed 52h — client notified", time: "1h ago" },
-      { message: "USD/INR moved 1.8% — hedging recommendation ready", time: "3h ago" },
-      { message: "GST filing due in 5 days — accounts team notified", time: "Yesterday" },
-    ],
-    service: [
-      { message: "Quote follow-up sent to 3 leads (7-day cadence)", time: "2h ago" },
-      { message: "Project #P-14 complete — review request sent", time: "4h ago" },
-      { message: "Crew utilisation at 94% — hiring alert triggered", time: "Yesterday" },
-    ],
-  };
-
   const notifications = user?.notifications?.length
     ? user.notifications
     : (DEMO_NOTIFICATIONS[business?.id] || []);
 
-  // Wire up ⌘K / Ctrl+K shortcut
+  // Wire up ⌘K / Ctrl+K
   React.useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -149,6 +127,7 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
   return (
     <div style={{
       height: 56, padding: '0 24px',
@@ -169,32 +148,36 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
           Ask Atlas…
           <span className="mono" style={{ padding: '1px 5px', borderRadius: 3, background: 'var(--bg-elevated)', border: '1px solid var(--border)', fontSize: 10, marginLeft: 8 }}>⌘K</span>
         </button>
-<button className="btn btn-ghost btn-sm" style={{ position: 'relative' }} onClick={() => setNotifOpen(p => !p)}>
-           <Icon name="bell" size={15}/>
-           {notifications.length > 0 && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>}
-         </button>
-         {notifOpen && (
-           <div
-             style={{ position: 'absolute', top: 56, right: 80, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 260, maxWidth: 320, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
-             onMouseLeave={() => setNotifOpen(false)}
-           >
-             <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Notifications</div>
-             {notifications.length === 0 ? (
-               <div style={{ padding: '16px 12px', fontSize: 13, color: 'var(--ink-4)', textAlign: 'center' }}>You're all caught up.</div>
-             ) : (
-               notifications.slice(0, 5).map((n, i) => (
-                 <div key={i}
-                   style={{ padding: '8px 12px', borderRadius: 6, cursor: 'default' }}
-                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                 >
-                   <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.4 }}>{n.message || n.title || String(n)}</div>
-                   {n.time && <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{n.time}</div>}
-                 </div>
-               ))
-             )}
-           </div>
-         )}
+
+        {/* Bell — now opens a notification dropdown instead of doing nothing */}
+        <div style={{ position: 'relative' }}>
+          <button className="btn btn-ghost btn-sm" style={{ position: 'relative' }} onClick={() => setNotifOpen(p => !p)}>
+            <Icon name="bell" size={15}/>
+            {notifications.length > 0 && (
+              <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, background: 'var(--negative)' }}/>
+            )}
+          </button>
+          {notifOpen && (
+            <div
+              style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 280, maxWidth: 320, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
+              onMouseLeave={() => setNotifOpen(false)}
+            >
+              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Notifications</div>
+              {notifications.length === 0 ? (
+                <div style={{ padding: '16px 12px', fontSize: 13, color: 'var(--ink-4)', textAlign: 'center' }}>You're all caught up.</div>
+              ) : notifications.slice(0, 5).map((n, i) => (
+                <div key={i} style={{ padding: '8px 12px', borderRadius: 6, cursor: 'default' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.4 }}>{n.message || n.title || String(n)}</div>
+                  {n.time && <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{n.time}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div style={{ width: 1, height: 22, background: 'var(--border)' }}/>
         <button onClick={() => setOpen(!open)} style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px',
@@ -207,7 +190,6 @@ export const TopBar = ({ title, business, user, onExit = null }) => {
         </button>
       </div>
 
-      {/* Fix #33: dropdown menu renders when open is true */}
       {open && (
         <div
           style={{ position: 'absolute', top: 56, right: 24, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, boxShadow: 'var(--shadow-lg)', zIndex: 20 }}
@@ -247,14 +229,14 @@ const AskAtlas = ({ onClose, business }) => {
   const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [answer, setAnswer] = React.useState(null);
-  const [error, setError] = React.useState(null);
+  const [hasError, setHasError] = React.useState(false);
 
   const samplesByType = {
-    'Home Baker': ['Why was last Saturday slower?', 'What should I do about cinnamon roll margins?', 'Show me my best customers'],
-    'Retail Shop': ['Why did foot traffic drop Thursday?', 'Which SKUs should I mark down?', 'What is my busiest hour this week?'],
-    'Pharmacy': ['Why is Monday wait time higher?', 'Which refills are most at risk of lapsing?', 'What is driving front-of-store growth?'],
-    'Cafe': ['Why is cold brew growing so fast?', 'How do I reduce oat milk cost?', 'Who are my top loyalty members?'],
-    'Import/Export': ['Why is on-time rate dropping?', 'Which clients are at churn risk?', 'What is the FX impact this quarter?'],
+    'Home Baker':       ['Why was last Saturday slower?', 'What should I do about cinnamon roll margins?', 'Show me my best customers'],
+    'Retail Shop':      ['Why did foot traffic drop Thursday?', 'Which SKUs should I mark down?', 'What is my busiest hour this week?'],
+    'Pharmacy':         ['Why is Monday wait time higher?', 'Which refills are most at risk of lapsing?', 'What is driving front-of-store growth?'],
+    'Cafe':             ['Why is cold brew growing so fast?', 'How do I reduce oat milk cost?', 'Who are my top loyalty members?'],
+    'Import/Export':    ['Why is on-time rate dropping?', 'Which clients are at churn risk?', 'What is the FX impact this quarter?'],
     'Service Business': ['Why did revenue jump in March?', 'Which jobs have the best margin?', 'When should I hire another crew member?'],
   };
   const samples = samplesByType[business?.category] || samplesByType['Home Baker'];
@@ -270,13 +252,16 @@ const AskAtlas = ({ onClose, business }) => {
     if (!query.trim() || loading) return;
     setLoading(true);
     setAnswer(null);
-    setError(null);
+    setHasError(false);
     try {
-      // Send full business context to the backend — works for both demo and real accounts
+      // Use askWithContext — passes full business object to the public /api/v1/ask endpoint.
+      // This works for both demo businesses (no DB record) and real ones, replacing the
+      // old insights.ask(business.id) call which would 404 for demo IDs.
       const res = await AtlasAPI.insights.askWithContext(query, business);
       setAnswer(res.answer || 'No response generated.');
-    } catch (e) {
-      setError('Could not reach the AI. Check your connection and try again.');
+    } catch {
+      setHasError(true);
+      setAnswer('Could not reach the AI. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -291,8 +276,7 @@ const AskAtlas = ({ onClose, business }) => {
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="sparkles" size={16}/>
           <input
-            autoFocus
-            className="input"
+            autoFocus className="input"
             style={{ border: 'none', padding: 0, fontSize: 14, flex: 1 }}
             placeholder={`Ask anything about ${business?.name}…`}
             value={q}
@@ -305,17 +289,16 @@ const AskAtlas = ({ onClose, business }) => {
           }
         </div>
 
-        {(answer || error) && (
-          <div className="fade-in" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 13, lineHeight: 1.6, background: 'var(--bg-subtle)', color: error ? 'var(--negative)' : 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
-            {error || answer}
+        {answer && (
+          <div className="fade-in" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 13, color: hasError ? 'var(--negative)' : 'var(--ink-2)', lineHeight: 1.6, background: 'var(--bg-subtle)', whiteSpace: 'pre-wrap' }}>
+            {answer}
           </div>
         )}
 
         <div style={{ padding: 8 }}>
           <div className="eyebrow" style={{ padding: '8px 10px' }}>Suggested</div>
           {samples.map((s, i) => (
-            <div
-              key={i}
+            <div key={i}
               style={{ padding: '8px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -334,10 +317,10 @@ const AskAtlas = ({ onClose, business }) => {
 // Business switcher modal
 export const BusinessSwitcher = ({ current, allBusinessList, onSelect, onClose }) => {
   const [search, setSearch] = React.useState('');
-   const list = (allBusinessList || ATLAS_BUSINESS_LIST).filter(b => 
-     b.name.toLowerCase().includes(search.toLowerCase()) || 
-     (b.category || '').toLowerCase().includes(search.toLowerCase())
-   );
+  const list = (allBusinessList || ATLAS_BUSINESS_LIST).filter(b =>
+    b.name.toLowerCase().includes(search.toLowerCase()) ||
+    (b.category || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.30)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
@@ -354,10 +337,10 @@ export const BusinessSwitcher = ({ current, allBusinessList, onSelect, onClose }
             <div style={{ position: 'absolute', left: 10, top: 10, color: 'var(--ink-4)' }}>
               <Icon name="search" size={14}/>
             </div>
-            <input 
-              className="input" 
-              style={{ paddingLeft: 32, fontSize: 13 }} 
-              placeholder="Search businesses..." 
+            <input
+              className="input"
+              style={{ paddingLeft: 32, fontSize: 13 }}
+              placeholder="Search businesses..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
@@ -381,7 +364,7 @@ export const BusinessSwitcher = ({ current, allBusinessList, onSelect, onClose }
                 <BizAvatar business={biz} size={32}/>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{biz.name}</div>
-                   <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{biz.category} • {biz.location || biz.address}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{biz.category} • {biz.location || biz.address}</div>
                 </div>
                 {biz.isDemo && <span className="badge" style={{ fontSize: 10 }}>Demo</span>}
                 {isActive && <Icon name="check" size={14} color="var(--ink-1)"/>}

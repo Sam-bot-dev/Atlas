@@ -524,10 +524,94 @@ Provide a data-backed answer as Atlas. Reference specific numbers from the metri
   }
 }
 
+/**
+ * Public version of askAtlas — accepts a full business object instead of a DB ID.
+ * Used by the public /api/v1/ask endpoint so demo businesses (no DB record) can
+ * also query the AI with their full client-side context passed in the request body.
+ *
+ * @param {object} business - full business object (from client, may be demo data)
+ * @param {string} query
+ */
+async function publicAskAtlas(business, query) {
+  const safeQuery = sanitizeQuery(query);
+  if (!safeQuery) {
+    return { answer: "I couldn't understand that query. Please rephrase your question.", isFallback: true };
+  }
+
+  // Build a lightweight context from the passed business object
+  const metrics = business.metrics && typeof business.metrics === 'object' && !Array.isArray(business.metrics)
+    ? business.metrics
+    : {};
+
+  const environmental = getMockEnvironmentalContext(business.location || business.address || '');
+
+  const insightTitles = Array.isArray(business.insights)
+    ? business.insights.map(i => i.title).filter(Boolean).join(', ')
+    : '';
+
+  if (!GROQ_API_KEY) {
+    return {
+      answer: "I'm currently in offline mode. Connect my brain (GROQ_API_KEY) for full AI reasoning!",
+      isFallback: true,
+    };
+  }
+
+  try {
+    const systemPrompt = `You are Atlas, a genius AI Business Partner for Indian SMBs.
+    You have access to the business's data, metrics, and context.
+    Your tone is professional, encouraging, and highly data-driven.
+    Answer the user's question specifically using their metrics.
+    Keep answers concise but high-value (max 4 sentences).`;
+
+    const userPrompt = `
+Business: ${business.name || 'Business'} (${business.category || business.type || 'Business'})
+Location: ${business.location || business.address || 'India'}
+Current Metrics: Revenue ${metrics.revenue?.unit || '\u20b9'}${metrics.revenue?.value ?? 0} (${metrics.revenue?.delta >= 0 ? '+' : ''}${metrics.revenue?.delta ?? 0}%), Orders ${metrics.orders?.value ?? 0}, Retention ${metrics.retention?.value ?? 0}%
+Environment: ${environmental.temp}, ${environmental.condition} (${environmental.impact})
+Recent Insights: ${insightTitles || 'None yet'}
+
+User Question: "${safeQuery}"
+
+Provide a data-backed answer as Atlas. Reference specific numbers where relevant.`;
+
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_INSIGHT_MODEL || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.6,
+        max_tokens: 512,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Groq API error: ${response.statusText}`);
+
+    const data = await response.json();
+    return {
+      answer: data.choices[0].message.content,
+      isFallback: false,
+    };
+  } catch (error) {
+    console.error('Atlas publicAsk Error:', error);
+    return {
+      answer: "I'm having trouble connecting to my reasoning engine. Please try again in a moment.",
+      isFallback: true,
+    };
+  }
+}
+
 module.exports = {
   generateInsights,
   gatherBusinessContext,
   generateInsightsViaLLM,
   generateFallbackInsights,
   askAtlas,
+  publicAskAtlas,
 };

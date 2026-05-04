@@ -24,17 +24,50 @@ if (requiredEnv.length > 0) {
 const port = process.env.PORT || 5000;
 const app = express();
 
-// Security middleware — Content Security Policy
+// Security middleware — Content Security Policy + security headers
 app.use((req, res, next) => {
-  // Fix #105: Add CSP header to prevent XSS and data injection
-    res.setHeader(
-      'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: fonts.gstatic.com; connect-src 'self' https://api.groq.com; frame-src 'self';"
-    );
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: https:",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join('; '));
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
   next();
 });
 
-console.log('✓ JWT_SECRET configured (' + (process.env.JWT_SECRET?.length ?? 0) + ' chars)');
+// Request logging (skips health check noise)
+app.use((req, res, next) => {
+  if (req.path === '/api/v1/health') return next();
+  const start = Date.now();
+  res.on('finish', () => {
+    const lvl = res.statusCode >= 500 ? 'ERROR' : res.statusCode >= 400 ? 'WARN' : 'INFO';
+    console.log(`[${lvl}] ${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+  });
+  next();
+});
+
+console.log(`✓ JWT_SECRET configured (${process.env.JWT_SECRET?.length ?? 0} chars)`);
+
+// Crash guards — prevent one bad request from killing the server
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err.message);
+  if (err.code === 'EADDRINUSE') process.exit(1);
+});
 
 
 const authLimiter = rateLimit({
@@ -45,12 +78,12 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Fix #79: rate limit expensive/state-changing endpoints to prevent abuse
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 60, // max 60 requests per minute per IP
+  windowMs: 60 * 1000,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === '/api/v1/health',
 });
 
 const uploadLimiter = rateLimit({
@@ -73,8 +106,8 @@ app.use(cors({
     return callback(new Error('Not allowed by CORS'));
   },
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 
 // ─── Routes ──────────────────────────────────────────────────────
 app.use('/api/v1/auth', authLimiter, require('./routes/authRoutes'));
@@ -90,9 +123,15 @@ app.use('/api/v1/businesses/:bizId/uploads',    require('./middleware/authMiddle
 app.use('/api/v1/businesses/:bizId/tasks',      require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/taskRoutes'));
 app.use('/api/v1/businesses/:bizId',           require('./middleware/authMiddleware').protect, apiLimiter, require('./routes/businessExtrasRoutes'));
 
-// Health check
-app.get('/api/v1/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check — includes DB connectivity
+app.get('/api/v1/health', async (_req, res) => {
+  try {
+    const { prisma } = require('./lib/prisma');
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', db: 'connected', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ status: 'degraded', db: 'disconnected', ts: new Date().toISOString() });
+  }
 });
 
 // Public ask endpoint — accepts business context in body, calls Groq, no auth required
@@ -110,20 +149,31 @@ app.get('/api/v1/metrics/template', (req, res) => {
 });
 
 const frontendDist = path.join(__dirname, '..', 'dist');
-app.use(express.static(frontendDist));
-app.get('*path', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(frontendDist, 'index.html'), (error) => {
-    if (error) next();
-  });
+const isProd = process.env.NODE_ENV === 'production';
+app.use(express.static(frontendDist, { maxAge: isProd ? '1y' : 0, etag: true, index: false }));
+app.use((_req, res, next) => {
+  if (_req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(frontendDist, 'index.html'), { maxAge: 0 }, (err) => { if (err) next(); });
 });
 
 // Global Error Handler
 app.use(errorHandler);
 
-app.listen(port, () => {
-  console.log(`Atlas backend running on port ${port}`);
-  recoverQueuedUploadJobs().catch((error) => {
-    console.error('Upload job recovery failed:', error);
-  });
+const server = app.listen(port, () => {
+  console.log(`Atlas backend running on port ${port} [${isProd ? 'production' : 'development'}]`);
+  // Wait for DB connection before recovering queued jobs
+  setTimeout(() => {
+    recoverQueuedUploadJobs().catch((err) => {
+      console.error('[startup] Upload job recovery failed:', err.message);
+    });
+  }, 2000);
 });
+
+// Graceful shutdown — Render sends SIGTERM before killing the process
+const shutdown = (sig) => {
+  console.log(`[shutdown] ${sig} received — draining connections`);
+  server.close(() => { console.log('[shutdown] Done.'); process.exit(0); });
+  setTimeout(() => { console.error('[shutdown] Forced exit'); process.exit(1); }, 10_000).unref();
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
