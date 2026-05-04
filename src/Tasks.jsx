@@ -16,6 +16,9 @@ export const Tasks = ({ business }) => {
   const [tasks, setTasks] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [acting, setActing] = React.useState(null); // taskId being acted on
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [newTitle, setNewTitle] = React.useState('');
+  const [adding, setAdding] = React.useState(false);
 
   // Load tasks — demo reads from in-memory store, real from API
   const loadTasks = React.useCallback(() => {
@@ -75,6 +78,29 @@ export const Tasks = ({ business }) => {
     }
   };
 
+  const handleAddTask = async (e) => {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title) return;
+    setAdding(true);
+    try {
+      if (isDemo) {
+        const task = demoTaskStore.makeTask(business.id, { title }, 'task');
+        demoTaskStore.add(business.id, task);
+        setTasks(demoTaskStore.list(business.id));
+      } else {
+        const task = await AtlasAPI.tasks.create(business.id, { title });
+        setTasks(prev => [task, ...prev]);
+      }
+      setNewTitle('');
+      setShowAdd(false);
+    } catch (err) {
+      console.error('Add task failed', err);
+    } finally {
+      setAdding(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '32px 32px 80px', maxWidth: 1320, margin: '0 auto' }}>
@@ -95,15 +121,44 @@ export const Tasks = ({ business }) => {
         eyebrow="To Do"
         title="Tasks"
         subtitle={`${pending.length} active · ${completed.length} completed`}
+        action={
+          <button className="btn btn-sm btn-primary" onClick={() => setShowAdd(p => !p)}>
+            <Icon name="plus" size={13}/> Add task
+          </button>
+        }
       />
+
+      {showAdd && (
+        <form onSubmit={handleAddTask} style={{ marginBottom: 16 }}>
+          <div className="card" style={{ padding: '12px 16px', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              autoFocus
+              className="input"
+              style={{ flex: 1, fontSize: 13 }}
+              placeholder="Task title…"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+            />
+            <button type="submit" className="btn btn-sm btn-primary" disabled={adding || !newTitle.trim()}>
+              {adding ? 'Adding…' : 'Add'}
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setShowAdd(false); setNewTitle(''); }}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       {tasks.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: 'center' }}>
           <Icon name="check-square" size={32} color="var(--ink-4)"/>
           <div style={{ fontSize: 15, fontWeight: 500, marginTop: 16, marginBottom: 8 }}>No tasks yet</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-3)', maxWidth: 320, margin: '0 auto' }}>
-            Click "Apply suggestion" or "Create task" on any action in the Overview to add tasks here.
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', maxWidth: 320, margin: '0 auto 20px' }}>
+            Click "Apply suggestion" or "Create task" on any action in the Overview, or add one manually.
           </div>
+          <button className="btn btn-sm" onClick={() => setShowAdd(true)}>
+            <Icon name="plus" size={13}/> Add a task
+          </button>
         </div>
       ) : (
         <>

@@ -79,4 +79,15 @@ function remove(bizId, taskId) {
   complete(bizId, taskId); // same operation
 }
 
-export const demoTaskStore = { makeTask, add, list, complete, remove };
+/**
+ * Update a task's status.
+ * @param {string} bizId
+ * @param {string} taskId
+ * @param {string} status
+ */
+function update(bizId, taskId, status) {
+  const tasks = store.get(bizId) || [];
+  store.set(bizId, tasks.map(t => t.id === taskId ? { ...t, status } : t));
+}
+
+export const demoTaskStore = { makeTask, add, list, get: list, complete, remove, update };

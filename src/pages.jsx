@@ -325,6 +325,32 @@ export const DataSources = ({ business }) => {
     }
   };
 
+  const handleDisconnect = async (sourceId) => {
+    if (!business?.id || isDemo) {
+      setSources(prev => prev.map(s => s.id === sourceId ? { ...s, status: 'available', last: 'Connect' } : s));
+      return;
+    }
+    try {
+      await AtlasAPI.sources.disconnect(business.id, sourceId);
+      setSources(prev => prev.map(s => s.id === sourceId ? { ...s, status: 'available', last: 'Connect' } : s));
+    } catch (err) {
+      alert('Disconnect failed: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const handleSync = async (sourceId) => {
+    if (isDemo) {
+      setSources(prev => prev.map(s => s.id === sourceId ? { ...s, last: 'Synced just now' } : s));
+      return;
+    }
+    try {
+      await AtlasAPI.sources.sync(business.id, sourceId);
+      setSources(prev => prev.map(s => s.id === sourceId ? { ...s, last: 'Synced just now' } : s));
+    } catch (err) {
+      alert('Sync failed: ' + (err.message || 'Unknown error'));
+    }
+  };
+
   const handleUploadFile = async (file) => {
     if (!file || !business?.id) return;
     setExtractResult(null);
@@ -576,7 +602,14 @@ export const DataSources = ({ business }) => {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {s.status === 'connected' ? (
-                  <span style={{ fontSize: 12, padding: '2px 8px', background: 'var(--bg-positive)', borderRadius: 4, color: 'var(--ink-1)' }}>Connected</span>
+                  <>
+                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => handleSync(s.id)} disabled={busy}>
+                      <Icon name="refresh" size={12}/> Sync
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--negative)' }} onClick={() => handleDisconnect(s.id)} disabled={busy}>
+                      Disconnect
+                    </button>
+                  </>
                 ) : (
                   <button className="btn btn-sm" style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => handleConnect(s.id)} disabled={busy}>
                     Connect

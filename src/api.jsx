@@ -226,8 +226,11 @@ const AtlasAPI = {
   },
 };
  
- const logError = (prefix, error) => {
-   console.error(`${prefix}:`, error);
- };
+import { captureError } from './telemetry';
+
+const logError = (prefix, error) => {
+  console.error(`${prefix}:`, error);
+  captureError(error, { prefix });
+};
  
  export { AtlasAPI, logError };

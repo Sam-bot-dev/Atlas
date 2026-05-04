@@ -657,7 +657,7 @@ const BUSINESS_LIST = [
   { id: 'retail',   name: 'Vrindavan Textiles', desc: 'Textiles & garments, Surat',              icon: 'retail'   },
   { id: 'pharmacy', name: 'Swasthya Medicals',  desc: 'Medical store, Ahmedabad',                icon: 'pharmacy' },
   { id: 'trade',    name: 'Bharat Global Exports', desc: 'Global freight & exports, Mumbai',     icon: 'trade'    },
-  { id: 'service',  name: 'Skyline Interiors',  desc: 'Interiors & renovation, Gurugram',        icon: 'service'  },
+  { id: 'service',  name: 'Skyline Interiors',  desc: 'Interiors & renovation, Manali',          icon: 'service'  },
   { id: 'cafe',     name: 'Chai Trunk',          desc: 'Chai, filter coffee & snacks, Bengaluru', icon: 'cafe'   },
 ];
 
