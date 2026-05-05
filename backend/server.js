@@ -99,7 +99,7 @@ const apiLimiter = rateLimit({
 
 const uploadLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 60, // increased — list/status polls count against this
+  max: 120, // increased — list/status polls count against this
   standardHeaders: true,
   legacyHeaders: false,
 });

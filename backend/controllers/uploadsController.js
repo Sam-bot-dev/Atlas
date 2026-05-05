@@ -6,13 +6,15 @@ const { detectFileType } = require('../lib/ingestion/detect');
 const { enqueueUploadJob, confirmUploadJob } = require('../lib/ingestion/worker');
 
 const ensureBusiness = async (req) => {
+  console.log('ensureBusiness: bizId:', req.params.bizId, 'userId:', req.user.id);
   const business = await prisma.business.findFirst({
     where: { id: req.params.bizId, userId: req.user.id },
   });
+  console.log('business found:', !!business);
 
   if (!business) {
     const error = new Error('Business not found');
-    error.statusCode = 404;
+    error.statusCode = 400;
     throw error;
   }
 
@@ -109,12 +111,15 @@ const getUpload = asyncHandler(async (req, res) => {
 });
 
 const listUploads = asyncHandler(async (req, res) => {
+  console.log('listUploads called for bizId:', req.params.bizId, 'user:', req.user?.id);
   await ensureBusiness(req);
+  console.log('ensureBusiness passed');
 
   const jobs = await prisma.uploadJob.findMany({
     where: { businessId: req.params.bizId },
     orderBy: { createdAt: 'desc' },
   });
+  console.log('found jobs:', jobs.length);
 
   res.json(jobs.map(serializeJob));
 });
