@@ -172,7 +172,31 @@ Atlas was architected and built by a dedicated two-member team from India:
    ```
 
 ---
+## contributors
 
+<p align="center">
+  <table>
+    <tr>
+      <td align="center" width="50%">
+        <div>
+          <img src="https://avatars.githubusercontent.com/Sam-bot-dev?s=120" width="120px;" height="120px;" alt="Bhavesh"/>
+        </div>
+        <div><strong>Database</strong></div>
+        <div><strong>Bhavesh</strong></div>
+        <a href="https://github.com/Sam-bot-dev">🌐 GitHub</a>
+      </td>
+      <td align="center" width="50%">
+        <div>
+          <img src="https://avatars.githubusercontent.com/notUbaid?s=120" width="120px;" height="120px;" alt="Ubaid khan"/>
+        </div>
+        <div><strong>Pipeline</strong></div>
+        <div><strong>Ubaid khan</strong></div>
+        <a href="https://github.com/notUbaid">🌐 GitHub</a>
+      </td>
+    </tr>
+  </table>
+</p>
+---
 <div align="center">
   Built with ❤️ by Better Call Coders
 </div>
