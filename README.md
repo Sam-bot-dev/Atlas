@@ -196,6 +196,7 @@ Atlas was architected and built by a dedicated two-member team from India:
     </tr>
   </table>
 </p>
+
 ---
 <div align="center">
   Built with ❤️ by Better Call Coders
